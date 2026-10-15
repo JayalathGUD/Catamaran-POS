@@ -4,3 +4,14 @@ out
 .DS_Store
 .eslintcache
 *.log*
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Local data and backups
+*.db
+*.sqlite
+*.sqlite3
+Catamaran-Backups/
