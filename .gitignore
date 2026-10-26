@@ -6,8 +6,6 @@ out
 *.log*
 
 # Environment variables and secrets
-.env
-.env.*
 !.env.example
 
 # Local data and backups
@@ -15,3 +13,7 @@ out
 *.sqlite
 *.sqlite3
 Catamaran-Backups/
+# Local backups and database exports
+backups/
+backend/.env
+config.bat
