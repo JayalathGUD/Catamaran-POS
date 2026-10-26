@@ -15,3 +15,6 @@ out
 *.sqlite
 *.sqlite3
 Catamaran-Backups/
+# Local backups and database exports
+backups/
+backend/.env
