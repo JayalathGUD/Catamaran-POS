@@ -92,6 +92,16 @@ const billSchema = new mongoose.Schema(
       type: String,
       default: 'Kasun P.'
     },
+    amountTendered: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+    changeDue: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
     refundReason: {
       type: String,
       default: ''

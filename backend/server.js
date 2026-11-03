@@ -1,4 +1,4 @@
-require('dotenv').config();
+ require('dotenv').config();
 
 const express = require('express');
 const helmet = require('helmet');
@@ -15,6 +15,7 @@ const StockMovement = require('./models/StockMovement');
 const Instructor = require('./models/Instructor');
 const Lesson = require('./models/Lesson');
 const Payment = require('./models/Payment');
+const Setting = require('./models/Setting');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -69,6 +70,54 @@ app.get('/api/health', (req, res) => {
         ? 'connected'
         : 'disconnected'
   });
+});
+
+// ============================================================
+// SYSTEM & POS SETTINGS API
+// ============================================================
+app.get('/api/settings', async (req, res) => {
+  try {
+    let setting = await Setting.findOne({ key: 'general' });
+    if (!setting) {
+      setting = await Setting.create({ key: 'general' });
+    }
+    res.json(setting);
+  } catch (err) {
+    console.error('Failed to get settings:', err);
+    res.status(500).json({ error: 'Failed to retrieve settings' });
+  }
+});
+
+app.put('/api/settings', async (req, res) => {
+  try {
+    const allowedFields = [
+      'cashierName',
+      'restaurantName',
+      'restaurantTagline',
+      'restaurantPhone',
+      'restaurantAddress',
+      'defaultServiceCharge',
+      'defaultPaymentMethod',
+      'autoPrintReceipt',
+      'instagramHandle',
+      'softwareCredit'
+    ];
+    const updateData = {};
+    for (const field of allowedFields) {
+      if (req.body[field] !== undefined) {
+        updateData[field] = req.body[field];
+      }
+    }
+    const setting = await Setting.findOneAndUpdate(
+      { key: 'general' },
+      { $set: updateData },
+      { new: true, upsert: true }
+    );
+    res.json(setting);
+  } catch (err) {
+    console.error('Failed to update settings:', err);
+    res.status(500).json({ error: 'Failed to update settings' });
+  }
 });
 
 // ============================================================
@@ -466,33 +515,97 @@ app.get('/api/bills/:id', async (req, res) => {
   }
 });
 
+let isReplicaSet = false;
+
+async function checkReplicaSetSupport() {
+  try {
+    const admin = mongoose.connection.db.admin();
+    const serverStatus = await admin.serverStatus();
+    isReplicaSet = !!(serverStatus.repl && serverStatus.repl.setName);
+  } catch {
+    isReplicaSet = false;
+  }
+
+  if (!isReplicaSet) {
+    // 1. Monkey-patch startSession to return a clean no-op dummy session that never contacts the server
+    mongoose.startSession = async function () {
+      return {
+        _isDummy: true,
+        startTransaction: () => {},
+        commitTransaction: async () => {},
+        abortTransaction: async () => {},
+        endSession: async () => {},
+        withTransaction: async function (fn) {
+          return await fn();
+        },
+        inTransaction: () => false
+      };
+    };
+
+    // 2. Monkey-patch Query.prototype.session so any .session(s) gracefully drops session in standalone mode
+    const origQuerySession = mongoose.Query.prototype.session;
+    mongoose.Query.prototype.session = function (sess) {
+      if (!isReplicaSet || !sess || sess._isDummy) {
+        return origQuerySession.call(this, null);
+      }
+      return origQuerySession.call(this, sess);
+    };
+  }
+
+  console.log(
+    `MongoDB mode: ${isReplicaSet ? 'Replica Set (Transactions Enabled)' : 'Standalone (Transactions Disabled, Direct Atomic Operations Enabled)'}`
+  );
+}
+
 // Helper to run operations within a MongoDB transaction if available, with standalone fallback and transient conflict retry
 async function executeInTransaction(workFn, maxRetries = 5) {
+  // If we already detected standalone MongoDB (no replica set), run directly without any session overhead
+  if (!isReplicaSet) {
+    return await workFn({});
+  }
+
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    const session = await mongoose.startSession();
+    let session = null;
     let inTransaction = false;
     try {
-      try {
-        session.startTransaction();
-        inTransaction = true;
-      } catch {
-        inTransaction = false;
+      session = await mongoose.startSession();
+      if (session && !session._isDummy) {
+        try {
+          session.startTransaction();
+          inTransaction = true;
+        } catch {
+          inTransaction = false;
+        }
       }
 
-      const sessionOpt = inTransaction ? { session } : {};
+      const sessionOpt = inTransaction && session && !session._isDummy ? { session } : {};
       const result = await workFn(sessionOpt);
 
-      if (inTransaction) {
+      if (inTransaction && session && !session._isDummy) {
         await session.commitTransaction();
       }
       return result;
     } catch (err) {
-      if (inTransaction) {
+      if (inTransaction && session && !session._isDummy) {
         try {
           await session.abortTransaction();
         } catch {
           // ignore abort error
         }
+      }
+
+      const isStandaloneError =
+        err &&
+        err.message &&
+        (err.message.includes('Transaction numbers are only allowed on a replica set member or mongos') ||
+          err.message.includes('standalone') ||
+          err.message.includes('retryable writes') ||
+          err.message.includes('replica set'));
+
+      if (isStandaloneError) {
+        isReplicaSet = false;
+        console.warn('MongoDB running in standalone mode (no replica set). Falling back to direct execution.');
+        return await workFn({});
       }
 
       const isTransient =
@@ -507,7 +620,6 @@ async function executeInTransaction(workFn, maxRetries = 5) {
           (err.message && err.message.includes('Please retry your operation or multi-document transaction')));
 
       if (isTransient && attempt < maxRetries) {
-        // Exponential jittered backoff: 50ms, 100ms, 200ms...
         const delay = Math.min(500, Math.pow(2, attempt) * 25 + Math.floor(Math.random() * 30));
         await new Promise((res) => setTimeout(res, delay));
         continue;
@@ -515,7 +627,13 @@ async function executeInTransaction(workFn, maxRetries = 5) {
 
       throw err;
     } finally {
-      session.endSession();
+      if (session && !session._isDummy) {
+        try {
+          await session.endSession();
+        } catch {
+          // ignore
+        }
+      }
     }
   }
 }
@@ -539,7 +657,9 @@ app.post('/api/bills', async (req, res) => {
       total,
       status: requestedStatus,
       cashier,
-      notes
+      notes,
+      amountTendered,
+      changeDue
     } = req.body;
 
     const targetStatus = requestedStatus === 'Open' ? 'Open' : 'Settled';
@@ -748,6 +868,8 @@ app.post('/api/bills', async (req, res) => {
           totalPaid: billTotalPaid,
           balanceDue: billBalanceDue,
           cashier: cashier || 'Kasun P.',
+          amountTendered: Number(amountTendered) || 0,
+          changeDue: Number(changeDue) || 0,
           closedAt: targetStatus === 'Settled' ? nowIso : '',
           notes: notes ? String(notes).trim() : ''
         };
@@ -1206,7 +1328,7 @@ app.post('/api/bills/:id/pay', async (req, res) => {
       return res.status(400).json({ message: 'Invalid bill ID' });
     }
 
-    const { paymentMethod, discount, serviceCharge, cashier, orderType } = req.body;
+    const { paymentMethod, discount, serviceCharge, cashier, orderType, amountTendered, changeDue } = req.body;
 
     const paidBill = await executeInTransaction(async (sessionOpt) => {
       const bill = await Bill.findById(req.params.id, null, sessionOpt);
@@ -1267,6 +1389,8 @@ app.post('/api/bills/:id/pay', async (req, res) => {
       }
 
       bill.status = 'Settled';
+      if (amountTendered !== undefined) bill.amountTendered = Number(amountTendered) || 0;
+      if (changeDue !== undefined) bill.changeDue = Number(changeDue) || 0;
       bill.paymentStatus = billPaymentStatus;
       bill.totalPaid = billTotalPaid;
       bill.balanceDue = billBalanceDue;
@@ -1850,6 +1974,70 @@ app.post('/api/rentals/return/:id', async (req, res) => {
           ],
           sessionOpt
         );
+      }
+
+      // Automatically create or sync an official Bill record so this rental appears in POS Billing & Bill History
+      try {
+        const year = new Date().getFullYear();
+        const billNumber = `BILL-RNT-${year}-${String(rental._id).slice(-4).toUpperCase()}`;
+
+        const billItems = [
+          {
+            name: `Surfboard Rental - ${rental.boardName} (${rental.durationDisplay || 'Rental'})`,
+            quantity: 1,
+            unitPrice: rental.actualRentalCharge || finalCharged,
+            total: rental.actualRentalCharge || finalCharged,
+            code: 'RENTAL'
+          }
+        ];
+
+        if (rental.damageFee > 0) {
+          billItems.push({
+            name: `Damage Fee - ${rental.boardName}`,
+            quantity: 1,
+            unitPrice: rental.damageFee,
+            total: rental.damageFee,
+            code: 'DAMAGE-FEE'
+          });
+        }
+
+        const existingBill = await Bill.findOne(
+          {
+            $or: [
+              { billNumber },
+              { 'items.code': 'RENTAL', customerName: rental.customerName, date: rental.returnDate }
+            ]
+          },
+          null,
+          sessionOpt
+        );
+
+        if (!existingBill) {
+          await Bill.create(
+            [
+              {
+                billNumber,
+                customerName: rental.customerName,
+                date: rental.returnDate,
+                time: rental.returnTime,
+                orderType: 'Takeaway',
+                saleType: 'Surfboard Rental',
+                paymentMethod: paymentMethod || 'Cash',
+                items: billItems,
+                subtotal: finalCharged,
+                discount: rental.discountAmount || 0,
+                serviceCharge: 0,
+                total: finalCharged,
+                status: finalPaymentStatus === 'Paid' ? 'Settled' : 'Open',
+                cashier: cashier || 'Staff',
+                notes: `Rental Ref: ${finalReceipt}. Board: ${rental.boardName}. Returned: ${rental.returnDate} ${rental.returnTime}`
+              }
+            ],
+            sessionOpt
+          );
+        }
+      } catch (billSyncErr) {
+        console.warn('Bill sync for rental notice:', billSyncErr.message);
       }
 
       return rental;
@@ -4119,11 +4307,23 @@ async function startServer() {
       throw new Error('MONGODB_URI is missing from .env');
     }
 
-    await mongoose.connect(process.env.MONGODB_URI, {
-      serverSelectionTimeoutMS: 10000
-    });
+    try {
+      await mongoose.connect(process.env.MONGODB_URI, {
+        serverSelectionTimeoutMS: 4000,
+        retryWrites: false
+      });
+      console.log('MongoDB connected successfully to URI in .env');
+    } catch (primaryErr) {
+      console.warn('Primary MongoDB connection failed (' + primaryErr.message + '). Attempting local MongoDB fallback (mongodb://127.0.0.1:27017/catamaran_pos)...');
+      await mongoose.connect('mongodb://127.0.0.1:27017/catamaran_pos', {
+        serverSelectionTimeoutMS: 3000,
+        retryWrites: false
+      });
+      console.log('Connected to Local MongoDB fallback successfully');
+    }
 
-    console.log('MongoDB Atlas connected successfully');
+    await checkReplicaSetSupport();
+    console.log('MongoDB connected successfully');
 
     app.listen(PORT, '127.0.0.1', () => {
       console.log(`Backend running at http://127.0.0.1:${PORT}`);
