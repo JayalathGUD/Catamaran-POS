@@ -271,3 +271,4 @@ export function downloadBillPDF(bill: BillPdfPayload | HistoryBill): void {
   const sanitizedBillNum = (bill.billNumber || 'Bill').replace(/[^a-zA-Z0-9_-]/g, '_')
   doc.save(`Catamaran_Bill_${sanitizedBillNum}.pdf`)
 }
+

@@ -2,6 +2,7 @@ import logoImg from '../assets/logo.png'
 import React, { useEffect, useMemo, useState } from 'react'
 import { formatLKR } from '../data/demoData'
 import { getBills, getInventoryItems, getRentals, getSurfboards } from '../services/api'
+import { downloadBillPDF } from '../utils/billPdfGenerator'
 import {
   ActiveRental,
   CompletedRental,
@@ -20,6 +21,8 @@ import {
   IconCheck,
   IconChevronRight,
   IconClock,
+  IconDownload,
+  IconEye,
   IconInfo,
   IconInventory,
   IconPlus,
@@ -27,6 +30,7 @@ import {
   IconProfit,
   IconRotateCcw,
   IconSales,
+  IconSparkles,
   IconSurfboard,
   IconSurfLessons,
   IconX
@@ -210,6 +214,40 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const combinedTransactions = baseTransactions + paidRentals.length
   const estimatedProfit = Math.round(combinedTodaySales * 0.55)
   const estimatedCOGS = Math.max(0, combinedTodaySales - estimatedProfit)
+
+  // Revenue Mix & Performance indicators
+  const restaurantSalesPct =
+    combinedTodaySales > 0 ? Math.round((baseSales / combinedTodaySales) * 100) : 0
+  const rentalSalesPct =
+    combinedTodaySales > 0 ? Math.round((rentalIncomeTotal / combinedTodaySales) * 100) : 0
+  const cashPct =
+    combinedTodaySales > 0 ? Math.round((combinedCashReceived / combinedTodaySales) * 100) : 0
+  const cardPct =
+    combinedTodaySales > 0 ? Math.round((combinedCardReceived / combinedTodaySales) * 100) : 0
+  const avgOrderValue =
+    combinedTransactions > 0 ? Math.round(combinedTodaySales / combinedTransactions) : 0
+
+  const handleDownloadRecentBill = (bill: RecentBill): void => {
+    downloadBillPDF({
+      billNumber: bill.billNumber,
+      date: todayFormatted,
+      time: bill.time,
+      orderType: bill.saleType,
+      customerName: 'Guest',
+      cashier: bill.cashier || 'Cashier',
+      paymentMethod: bill.paymentMethod,
+      items: bill.items.map((i) => ({
+        name: i.name,
+        quantity: i.quantity,
+        unitPrice: i.unitPrice,
+        total: i.total
+      })),
+      subtotal: bill.total,
+      total: bill.total,
+      status: bill.status
+    })
+    showToast(`Downloading official PDF invoice for ${bill.billNumber}`)
+  }
 
   // Recent Bills from MongoDB
   const recentBills = useMemo(() => {
@@ -399,7 +437,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         </div>
 
         {/* Metric 2: Cash Received */}
-        <div className="metric-card">
+        <div className="metric-card metric-card-cash">
           <div className="metric-card-header">
             <div className="metric-icon-box metric-icon-emerald">
               <IconCash size={20} />
@@ -422,7 +460,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         </div>
 
         {/* Metric 3: Card Received */}
-        <div className="metric-card">
+        <div className="metric-card metric-card-card">
           <div className="metric-card-header">
             <div className="metric-icon-box metric-icon-blue">
               <IconCard size={20} />
@@ -445,7 +483,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         </div>
 
         {/* Metric 4: Gross Profit */}
-        <div className="metric-card">
+        <div className="metric-card metric-card-profit">
           <div className="metric-card-header">
             <div className="metric-icon-box metric-icon-navy">
               <IconProfit size={20} />
@@ -460,6 +498,81 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <div className="metric-footer-note">
               <span>Est. COGS: {formatLKR(estimatedCOGS)}</span>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Executive Performance Strip: Revenue Mix & Real-time Insights */}
+      <section className="dashboard-perf-strip">
+        <div className="perf-strip-card">
+          <div className="perf-strip-header">
+            <div className="perf-title-group">
+              <IconSparkles size={16} className="text-teal" />
+              <span className="perf-strip-title">Today&apos;s Revenue Mix</span>
+            </div>
+            <span className="perf-strip-badge">Department Breakdown</span>
+          </div>
+          <div className="perf-bar-wrap">
+            <div className="perf-progress-bar">
+              <div
+                className="perf-bar-segment seg-food"
+                style={{ width: `${restaurantSalesPct}%` }}
+                title={`Restaurant F&B: ${formatLKR(baseSales)} (${restaurantSalesPct}%)`}
+              />
+              <div
+                className="perf-bar-segment seg-rental"
+                style={{ width: `${rentalSalesPct}%` }}
+                title={`Surfboard Rentals: ${formatLKR(rentalIncomeTotal)} (${rentalSalesPct}%)`}
+              />
+            </div>
+            <div className="perf-bar-legend">
+              <div className="perf-legend-item">
+                <span className="perf-dot dot-food" />
+                <span className="perf-legend-label">Restaurant F&amp;B:</span>
+                <strong className="perf-legend-val">{formatLKR(baseSales)} ({restaurantSalesPct}%)</strong>
+              </div>
+              <div className="perf-legend-item">
+                <span className="perf-dot dot-rental" />
+                <span className="perf-legend-label">Surf Rentals:</span>
+                <strong className="perf-legend-val">{formatLKR(rentalIncomeTotal)} ({rentalSalesPct}%)</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="perf-strip-kpis">
+          <div className="perf-mini-kpi">
+            <span className="mini-kpi-label">Avg. Ticket (AOV)</span>
+            <strong className="mini-kpi-val text-teal">{formatLKR(avgOrderValue)}</strong>
+            <span className="mini-kpi-hint">Across {combinedTransactions} transactions</span>
+          </div>
+
+          <div className="perf-mini-kpi">
+            <span className="mini-kpi-label">Payment Split</span>
+            <div className="mini-split-bar">
+              <div className="split-cash" style={{ width: `${cashPct}%` }} title={`Cash: ${cashPct}%`} />
+              <div className="split-card" style={{ width: `${cardPct}%` }} title={`Card: ${cardPct}%`} />
+            </div>
+            <div className="mini-split-text">
+              <span className="text-emerald">{cashPct}% Cash</span>
+              <span className="text-indigo">{cardPct}% Card</span>
+            </div>
+          </div>
+
+          <div className="perf-mini-kpi">
+            <span className="mini-kpi-label">Boards In Water</span>
+            <strong className="mini-kpi-val text-blue">{rentedBoards} / {totalFleet}</strong>
+            <span className="mini-kpi-hint">{rentedPct}% fleet utilized</span>
+          </div>
+
+          <div className="perf-mini-kpi">
+            <span className="mini-kpi-label">Stock Status</span>
+            <strong className={`mini-kpi-val ${lowStockItems.length > 0 ? 'text-rose' : 'text-emerald'}`}>
+              {lowStockItems.length === 0 ? 'Healthy' : `${lowStockItems.length} Low`}
+            </strong>
+            <span className="mini-kpi-hint">
+              {lowStockItems.length > 0 ? 'Action required' : 'Stock optimal'}
+            </span>
           </div>
         </div>
       </section>
@@ -881,17 +994,32 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       </td>
 
                       <td className="th-action">
-                        <button
-                          type="button"
-                          className="btn-table-action"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setSelectedBill(bill)
-                          }}
-                          title="View receipt summary"
-                        >
-                          <span>View Bill</span>
-                        </button>
+                        <div className="dash-table-actions">
+                          <button
+                            type="button"
+                            className="btn-table-action dash-action-view"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setSelectedBill(bill)
+                            }}
+                            title="View receipt summary"
+                          >
+                            <IconEye size={12} />
+                            <span>View</span>
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-table-action dash-action-pdf"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDownloadRecentBill(bill)
+                            }}
+                            title="Download official PDF invoice"
+                          >
+                            <IconDownload size={12} />
+                            <span>PDF</span>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   )
@@ -1026,11 +1154,22 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 type="button"
                 className="btn-print"
                 onClick={() => {
-                  showToast(`Print command sent to EPSON TM-T88VI (${selectedBill.billNumber})`)
+                  window.print()
                 }}
               >
                 <IconPrinter size={16} />
-                <span>Print Receipt</span>
+                <span>Print 58mm Receipt</span>
+              </button>
+
+              <button
+                type="button"
+                className="btn-print"
+                style={{ backgroundColor: '#0284c7', color: '#ffffff', borderColor: '#0284c7' }}
+                onClick={() => handleDownloadRecentBill(selectedBill)}
+                title="Download official PDF invoice"
+              >
+                <IconDownload size={16} />
+                <span>Download PDF</span>
               </button>
 
               <button type="button" className="btn-dismiss" onClick={() => setSelectedBill(null)}>
