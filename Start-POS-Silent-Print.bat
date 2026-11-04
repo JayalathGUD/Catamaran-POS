@@ -25,3 +25,4 @@ if exist "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe" (
 
 echo Browser not found. Opening default browser...
 start http://localhost:5175
+

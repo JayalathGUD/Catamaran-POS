@@ -4,6 +4,7 @@ import logoImg from '../assets/logo.png'
 import { formatLKR } from '../data/demoData'
 import { IconChevronRight, IconDownload, IconPrinter, IconX } from './Icons'
 import { downloadBillPDF } from '../utils/billPdfGenerator'
+import { downloadReceiptAsPDF, printThermalReceipt } from '../utils/printReceiptHelper'
 
 export interface ReceiptItem {
   id?: string
@@ -103,7 +104,7 @@ export const ProfessionalReceipt: React.FC<ProfessionalReceiptProps> = ({
     })
 
   const handlePrint = (): void => {
-    window.print()
+    printThermalReceipt('thermal-print-target')
   }
 
   const handlePrintKitchen = (): void => {
@@ -114,24 +115,28 @@ export const ProfessionalReceipt: React.FC<ProfessionalReceiptProps> = ({
     setReceiptView('customer')
   }
 
-  const handleDownloadPdf = (): void => {
-    downloadBillPDF({
-      billNumber,
-      date: displayDate,
-      time: displayTime,
-      orderType,
-      customerName,
-      cashier: displayCashier,
-      paymentMethod,
-      items,
-      subtotal,
-      discount,
-      serviceCharge,
-      total: safeTotal,
-      amountTendered: safeTendered,
-      changeDue: safeChange,
-      status: 'Settled'
-    })
+  const handleDownloadPdf = async (): Promise<void> => {
+    const prefix = receiptView === 'kitchen' ? 'Catamaran_KOT_' : 'Catamaran_Receipt_'
+    const success = await downloadReceiptAsPDF('thermal-print-target', `${prefix}${billNumber}`)
+    if (!success) {
+      await downloadBillPDF({
+        billNumber,
+        date: displayDate,
+        time: displayTime,
+        orderType,
+        customerName,
+        cashier: displayCashier,
+        paymentMethod,
+        items,
+        subtotal,
+        discount,
+        serviceCharge,
+        total: safeTotal,
+        amountTendered: safeTendered,
+        changeDue: safeChange,
+        status: 'Settled'
+      })
+    }
   }
 
   return (

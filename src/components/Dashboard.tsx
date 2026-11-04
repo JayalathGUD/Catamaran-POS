@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { formatLKR } from '../data/demoData'
 import { getBills, getInventoryItems, getRentals, getSurfboards } from '../services/api'
 import { downloadBillPDF } from '../utils/billPdfGenerator'
+import { downloadReceiptAsPDF, printThermalReceipt } from '../utils/printReceiptHelper'
 import {
   ActiveRental,
   CompletedRental,
@@ -227,26 +228,34 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const avgOrderValue =
     combinedTransactions > 0 ? Math.round(combinedTodaySales / combinedTransactions) : 0
 
-  const handleDownloadRecentBill = (bill: RecentBill): void => {
-    downloadBillPDF({
-      billNumber: bill.billNumber,
-      date: todayFormatted,
-      time: bill.time,
-      orderType: bill.saleType,
-      customerName: 'Guest',
-      cashier: bill.cashier || 'Cashier',
-      paymentMethod: bill.paymentMethod,
-      items: bill.items.map((i) => ({
-        name: i.name,
-        quantity: i.quantity,
-        unitPrice: i.unitPrice,
-        total: i.total
-      })),
-      subtotal: bill.total,
-      total: bill.total,
-      status: bill.status
-    })
-    showToast(`Downloading official PDF invoice for ${bill.billNumber}`)
+  const handleDownloadRecentBill = async (bill: RecentBill): Promise<void> => {
+    const hasModal = document.getElementById('dash-thermal-print-target')
+    if (hasModal && selectedBill?.billNumber === bill.billNumber) {
+      await downloadReceiptAsPDF(
+        'dash-thermal-print-target',
+        `Catamaran_Receipt_${bill.billNumber}`
+      )
+    } else {
+      await downloadBillPDF({
+        billNumber: bill.billNumber,
+        date: todayFormatted,
+        time: bill.time,
+        orderType: bill.saleType,
+        customerName: 'Guest',
+        cashier: bill.cashier || 'Cashier',
+        paymentMethod: bill.paymentMethod,
+        items: bill.items.map((i) => ({
+          name: i.name,
+          quantity: i.quantity,
+          unitPrice: i.unitPrice,
+          total: i.total
+        })),
+        subtotal: bill.total,
+        total: bill.total,
+        status: bill.status
+      })
+    }
+    showToast(`Downloaded official 58mm receipt for ${bill.billNumber}`)
   }
 
   // Recent Bills from MongoDB
@@ -1077,7 +1086,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               </button>
             </div>
 
-            <div className="bill-receipt-paper">
+            <div className="bill-receipt-paper" id="dash-thermal-print-target">
               <div className="receipt-header-center">
                 <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '4px' }}>
                   <img src={logoImg} alt="Catamaran Beach Restaurant" style={{ maxHeight: '60px', width: 'auto' }} />
@@ -1154,7 +1163,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 type="button"
                 className="btn-print"
                 onClick={() => {
-                  window.print()
+                  printThermalReceipt('dash-thermal-print-target')
                 }}
               >
                 <IconPrinter size={16} />
