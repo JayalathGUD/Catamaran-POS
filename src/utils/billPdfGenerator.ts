@@ -25,6 +25,8 @@ export interface BillPdfPayload {
   total: number
   amountTendered?: number
   changeDue?: number
+  splitCashAmount?: number
+  splitCardAmount?: number
   status?: string
 }
 
@@ -167,7 +169,27 @@ export async function downloadBillPDF(bill: BillPdfPayload | HistoryBill): Promi
   doc.text(`PAYMENT: ${bill.paymentMethod || 'Cash'}`, marginLeft, y)
   y += 3
 
-  if (bill.amountTendered && bill.amountTendered > 0) {
+  const isSplitBill =
+    (bill.paymentMethod || '').toLowerCase().includes('split') ||
+    ((bill.splitCashAmount ?? 0) > 0 && (bill.splitCardAmount ?? 0) > 0)
+
+  if (isSplitBill) {
+    if (bill.splitCashAmount !== undefined) {
+      doc.text('CASH PORTION:', marginLeft, y)
+      doc.text(formatLKR(bill.splitCashAmount), marginRight, y, { align: 'right' })
+      y += 3
+    }
+    if (bill.splitCardAmount !== undefined) {
+      doc.text('CARD CHARGED:', marginLeft, y)
+      doc.text(formatLKR(bill.splitCardAmount), marginRight, y, { align: 'right' })
+      y += 3
+    }
+    if (bill.changeDue && bill.changeDue > 0) {
+      doc.text('CHANGE RETURNED:', marginLeft, y)
+      doc.text(formatLKR(bill.changeDue), marginRight, y, { align: 'right' })
+      y += 3
+    }
+  } else if (bill.amountTendered && bill.amountTendered > 0) {
     doc.text('CASH TENDERED:', marginLeft, y)
     doc.text(formatLKR(bill.amountTendered), marginRight, y, { align: 'right' })
     y += 3

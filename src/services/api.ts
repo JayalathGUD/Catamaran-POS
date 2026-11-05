@@ -136,6 +136,8 @@ export async function createBill(billData: {
   total: number
   amountTendered?: number
   changeDue?: number
+  splitCashAmount?: number
+  splitCardAmount?: number
   status?: 'Open' | 'Settled'
   cashier?: string
   notes?: string
@@ -207,8 +209,10 @@ export async function payBill(
     serviceCharge?: number
     cashier?: string
     orderType?: string
-  amountTendered?: number
-  changeDue?: number
+    amountTendered?: number
+    changeDue?: number
+    splitCashAmount?: number
+    splitCardAmount?: number
   }
 ): Promise<HistoryBill> {
   const res = await fetch(`${API_ROOT}/bills/${billId}/pay`, {

@@ -105,6 +105,9 @@ export const PosBilling: React.FC<PosBillingProps> = ({
   const [serviceChargeRate, setServiceChargeRate] = useState<number>(10)
   const [paymentMethod, setPaymentMethod] = useState<PosPaymentType>('Cash')
   const [cashTendered, setCashTendered] = useState<string>('')
+  const [splitCashInput, setSplitCashInput] = useState<string>('')
+  const [splitCardInput, setSplitCardInput] = useState<string>('')
+  const [splitCashGiven, setSplitCashGiven] = useState<string>('')
   const [validationError, setValidationError] = useState<string | null>(null)
   const [showReceiptModal, setShowReceiptModal] = useState<boolean>(false)
   const [receiptModalInitialView, setReceiptModalInitialView] = useState<'customer' | 'kitchen'>('customer')
@@ -124,6 +127,8 @@ export const PosBilling: React.FC<PosBillingProps> = ({
     total: number
     amountTendered?: number
     changeDue?: number
+    splitCashAmount?: number
+    splitCardAmount?: number
   } | null>(null)
   const [isSubmittingBill, setIsSubmittingBill] = useState<boolean>(false)
   const [toast, setToast] = useState<string | null>(null)
@@ -319,6 +324,37 @@ export const PosBilling: React.FC<PosBillingProps> = ({
   // Cash change calculation
   const tenderedAmount = parseFloat(cashTendered) || 0
   const changeDue = Math.max(0, tenderedAmount - finalTotal)
+
+  // Split calculation & state helpers
+  const splitCashVal = parseFloat(splitCashInput) || 0
+  const splitCardVal = parseFloat(splitCardInput) || 0
+  const splitTotalEntered = splitCashVal + splitCardVal
+  const isSplitBalanced =
+    Math.abs(splitTotalEntered - finalTotal) < 0.5 &&
+    finalTotal > 0 &&
+    splitCashVal > 0 &&
+    splitCardVal > 0
+  const splitDifference = Math.round(finalTotal - splitTotalEntered)
+  const splitCashGivenVal = parseFloat(splitCashGiven) || splitCashVal
+  const splitCashChange = Math.max(0, splitCashGivenVal - splitCashVal)
+
+  const handleSplitCashChange = (val: string): void => {
+    setSplitCashInput(val)
+    const num = parseFloat(val)
+    if (!isNaN(num) && num >= 0 && finalTotal > 0) {
+      const remainingCard = Math.max(0, finalTotal - num)
+      setSplitCardInput(String(remainingCard))
+    }
+  }
+
+  const handleSplitCardChange = (val: string): void => {
+    setSplitCardInput(val)
+    const num = parseFloat(val)
+    if (!isNaN(num) && num >= 0 && finalTotal > 0) {
+      const remainingCash = Math.max(0, finalTotal - num)
+      setSplitCashInput(String(remainingCash))
+    }
+  }
 
   // Cart operations
   const addToCart = (product: PosProduct): void => {
@@ -650,11 +686,51 @@ export const PosBilling: React.FC<PosBillingProps> = ({
     setValidationError(null)
 
     try {
-      const finalTendered =
-        paymentMethod === 'Cash'
-          ? (tenderedAmount > 0 ? tenderedAmount : finalTotal)
-          : finalTotal
-      const finalChange = paymentMethod === 'Cash' ? Math.max(0, finalTendered - finalTotal) : 0
+      let resolvedPaymentMethod = 'Cash'
+      let finalTendered = finalTotal
+      let finalChange = 0
+      let splitCashAmt: number | undefined = undefined
+      let splitCardAmt: number | undefined = undefined
+
+      if (paymentMethod === 'Split') {
+        const cashPart = parseFloat(splitCashInput) || 0
+        const cardPart = parseFloat(splitCardInput) || 0
+        if (Math.abs(cashPart + cardPart - finalTotal) > 0.5) {
+          const err = `Split amounts (Rs. ${cashPart.toLocaleString()} Cash + Rs. ${cardPart.toLocaleString()} Card) do not match Grand Total (${formatLKR(finalTotal)}).`
+          setValidationError(err)
+          showToast(err)
+          setIsSubmittingBill(false)
+          return
+        }
+        if (cashPart <= 0 || cardPart <= 0) {
+          const err = 'Both Cash and Card portions must be greater than Rs. 0 for Split payment.'
+          setValidationError(err)
+          showToast(err)
+          setIsSubmittingBill(false)
+          return
+        }
+        splitCashAmt = cashPart
+        splitCardAmt = cardPart
+        const cashGiven = parseFloat(splitCashGiven) || cashPart
+        if (cashGiven < cashPart) {
+          const err = `Cash received (Rs. ${cashGiven.toLocaleString()}) cannot be less than Cash portion (Rs. ${cashPart.toLocaleString()}).`
+          setValidationError(err)
+          showToast(err)
+          setIsSubmittingBill(false)
+          return
+        }
+        finalChange = cashGiven - cashPart
+        finalTendered = cashGiven + cardPart
+        resolvedPaymentMethod = `Split (Cash: Rs. ${cashPart.toLocaleString()} + Card: Rs. ${cardPart.toLocaleString()})`
+      } else if (paymentMethod === 'Cash') {
+        resolvedPaymentMethod = 'Cash'
+        finalTendered = tenderedAmount > 0 ? tenderedAmount : finalTotal
+        finalChange = Math.max(0, finalTendered - finalTotal)
+      } else {
+        resolvedPaymentMethod = 'Card (Visa/MC)'
+        finalTendered = finalTotal
+        finalChange = 0
+      }
 
       if (activeBill) {
         // First sync any newly added/modified items on the open tab
@@ -674,13 +750,15 @@ export const PosBilling: React.FC<PosBillingProps> = ({
 
         // Settle & pay the bill atomically
         const settled = await payBill(activeBill.id, {
-          paymentMethod: paymentMethod === 'Cash' ? 'Cash' : 'Card (Visa/MC)',
+          paymentMethod: resolvedPaymentMethod,
           discount: effectiveDiscount,
           serviceCharge: serviceChargeAmount,
           cashier: settings.cashierName || 'Kasun P.',
           orderType,
           amountTendered: finalTendered,
-          changeDue: finalChange
+          changeDue: finalChange,
+          splitCashAmount: splitCashAmt,
+          splitCardAmount: splitCardAmt
         })
 
         setSettledBillData({
@@ -703,7 +781,9 @@ export const PosBilling: React.FC<PosBillingProps> = ({
           serviceCharge: serviceChargeAmount,
           total: finalTotal,
           amountTendered: finalTendered,
-          changeDue: finalChange
+          changeDue: finalChange,
+          splitCashAmount: splitCashAmt,
+          splitCardAmount: splitCardAmt
         })
         setCompletedBillNumber(settled.billNumber)
         setReceiptModalInitialView('customer')
@@ -718,7 +798,7 @@ export const PosBilling: React.FC<PosBillingProps> = ({
       } else {
         const billData = {
           orderType,
-          paymentMethod: paymentMethod === 'Cash' ? 'Cash' : 'Card (Visa/MC)',
+          paymentMethod: resolvedPaymentMethod,
           customerName: customerReference.trim(),
           items: cart.map((i) => ({
             name: i.product.name,
@@ -733,6 +813,8 @@ export const PosBilling: React.FC<PosBillingProps> = ({
           total: finalTotal,
           amountTendered: finalTendered,
           changeDue: finalChange,
+          splitCashAmount: splitCashAmt,
+          splitCardAmount: splitCardAmt,
           cashier: settings.cashierName || 'Kasun P.'
         }
 
@@ -757,7 +839,9 @@ export const PosBilling: React.FC<PosBillingProps> = ({
           serviceCharge: serviceChargeAmount,
           total: finalTotal,
           amountTendered: finalTendered,
-          changeDue: finalChange
+          changeDue: finalChange,
+          splitCashAmount: splitCashAmt,
+          splitCardAmount: splitCardAmt
         })
         setCompletedBillNumber(savedBill.billNumber)
         setReceiptModalInitialView('customer')
@@ -818,6 +902,9 @@ export const PosBilling: React.FC<PosBillingProps> = ({
     setCart([])
     setDiscountInput('0')
     setCashTendered('')
+    setSplitCashInput('')
+    setSplitCardInput('')
+    setSplitCashGiven('')
     setCustomerReference('')
     setValidationError(null)
     onClearActiveOpenBill?.()
@@ -1436,7 +1523,7 @@ export const PosBilling: React.FC<PosBillingProps> = ({
                 </div>
               </div>
 
-              {/* Payment Method Selector (Cash / Card) */}
+              {/* Payment Method Selector (Cash / Card / Split) */}
               <div className="pro-payment-section">
                 <div className="pro-section-label">PAYMENT METHOD</div>
                 <div className="pro-payment-tabs">
@@ -1454,10 +1541,156 @@ export const PosBilling: React.FC<PosBillingProps> = ({
                     onClick={() => setPaymentMethod('Card')}
                   >
                     <IconCard size={16} />
-                    <span>Card (Visa/MC)</span>
+                    <span>Card</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`pro-payment-tab ${paymentMethod === 'Split' ? 'pro-payment-tab-active' : ''}`}
+                    onClick={() => {
+                      setPaymentMethod('Split')
+                      if (
+                        (!splitCashInput && !splitCardInput) ||
+                        Math.abs((parseFloat(splitCashInput) || 0) + (parseFloat(splitCardInput) || 0) - finalTotal) > 0.01
+                      ) {
+                        const half = Math.round(finalTotal / 2)
+                        setSplitCashInput(String(half))
+                        setSplitCardInput(String(finalTotal - half))
+                      }
+                    }}
+                  >
+                    <span>⚡ Split (Cash+Card)</span>
                   </button>
                 </div>
               </div>
+
+              {/* Split Tender Payment Details */}
+              {paymentMethod === 'Split' && finalTotal > 0 && (
+                <div className="pro-split-container">
+                  <div className="pro-split-header">
+                    <span className="pro-split-title">⚡ Split Payment (මුදල් බෙදා ගෙවීම)</span>
+                    <button
+                      type="button"
+                      className="pro-split-preset-pill"
+                      onClick={() => {
+                        const half = Math.round(finalTotal / 2)
+                        setSplitCashInput(String(half))
+                        setSplitCardInput(String(finalTotal - half))
+                      }}
+                    >
+                      50% / 50% Even Split
+                    </button>
+                  </div>
+
+                  <div className="pro-split-grid">
+                    {/* Cash Portion Input */}
+                    <div className="pro-split-box">
+                      <label className="pro-split-box-label">
+                        <span>💵 Cash Portion (මුදලින් කොටස)</span>
+                      </label>
+                      <div className="pro-tender-input-wrap">
+                        <span className="pro-currency-tag">Rs.</span>
+                        <input
+                          type="number"
+                          min="0"
+                          max={finalTotal}
+                          placeholder="0"
+                          value={splitCashInput}
+                          onChange={(e) => handleSplitCashChange(e.target.value)}
+                          className="pro-tender-input"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Card Portion Input */}
+                    <div className="pro-split-box">
+                      <label className="pro-split-box-label">
+                        <span>💳 Card Portion (කාඩ්පතෙන්)</span>
+                      </label>
+                      <div className="pro-tender-input-wrap">
+                        <span className="pro-currency-tag">Rs.</span>
+                        <input
+                          type="number"
+                          min="0"
+                          max={finalTotal}
+                          placeholder="0"
+                          value={splitCardInput}
+                          onChange={(e) => handleSplitCardChange(e.target.value)}
+                          className="pro-tender-input"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Cash Received for the Cash Portion (Change Calculation) */}
+                  <div className="pro-split-cash-received-block">
+                    <div className="pro-tender-row">
+                      <label className="pro-tender-label">
+                        Cash Given by Guest (දෙන ලද මුදල් නෝට්ටුව):
+                      </label>
+                      <div className="pro-tender-input-wrap">
+                        <span className="pro-currency-tag">Rs.</span>
+                        <input
+                          type="number"
+                          placeholder={splitCashInput || '0'}
+                          value={splitCashGiven}
+                          onChange={(e) => setSplitCashGiven(e.target.value)}
+                          className="pro-tender-input"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Quick presets for Cash Received */}
+                    <div className="pro-quick-cash-row" style={{ marginTop: '6px' }}>
+                      {[
+                        { label: 'Exact Cash', val: splitCashInput || '0' },
+                        { label: 'Rs. 1,000', val: '1000' },
+                        { label: 'Rs. 2,000', val: '2000' },
+                        { label: 'Rs. 5,000', val: '5000' },
+                        { label: 'Rs. 10,000', val: '10000' }
+                      ]
+                        .filter((p) => p.label === 'Exact Cash' || Number(p.val) >= (parseFloat(splitCashInput) || 0))
+                        .slice(0, 4)
+                        .map((preset) => (
+                          <button
+                            key={preset.label}
+                            type="button"
+                            className={`pro-preset-btn ${splitCashGiven === preset.val ? 'pro-preset-active' : ''}`}
+                            onClick={() => setSplitCashGiven(preset.val)}
+                          >
+                            {preset.label}
+                          </button>
+                        ))}
+                    </div>
+                  </div>
+
+                  {/* Status & Change Due Card */}
+                  {isSplitBalanced ? (
+                    <div className="pro-split-status-card pro-split-balanced">
+                      <div className="pro-split-status-left">
+                        <div className="pro-split-status-badge">✓ BALANCED</div>
+                        <div className="pro-split-summary-text">
+                          Rs. {splitCashVal.toLocaleString()} (Cash) + Rs. {splitCardVal.toLocaleString()} (Card) = {formatLKR(finalTotal)}
+                        </div>
+                      </div>
+                      {splitCashChange > 0 && (
+                        <div className="pro-split-change-box">
+                          <span className="pro-split-change-lbl">RETURN CASH CHANGE:</span>
+                          <strong className="pro-split-change-val">{formatLKR(splitCashChange)}</strong>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="pro-split-status-card pro-split-unbalanced">
+                      <div className="pro-split-status-badge unbalanced">⚠ SPLIT MISMATCH</div>
+                      <div className="pro-split-unbalanced-msg">
+                        {splitDifference > 0
+                          ? `Rs. ${splitDifference.toLocaleString()} remaining to match Grand Total of ${formatLKR(finalTotal)}`
+                          : `Total exceeded by Rs. ${Math.abs(splitDifference).toLocaleString()} (must equal ${formatLKR(finalTotal)})`}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Cash Tendered Input & Prominent Change Due Card */}
               {paymentMethod === 'Cash' && finalTotal > 0 && (
@@ -1537,7 +1770,12 @@ export const PosBilling: React.FC<PosBillingProps> = ({
                       type="button"
                       className="pro-btn-settle"
                       onClick={handleCompleteBill}
-                      disabled={cart.length === 0 || isSubmittingBill || isUpdatingOpenBill}
+                      disabled={
+                        cart.length === 0 ||
+                        isSubmittingBill ||
+                        isUpdatingOpenBill ||
+                        (paymentMethod === 'Split' && !isSplitBalanced)
+                      }
                       style={{ background: 'linear-gradient(135deg, #0f766e 0%, #115e59 100%)' }}
                     >
                       {isSubmittingBill ? (
@@ -1633,7 +1871,12 @@ export const PosBilling: React.FC<PosBillingProps> = ({
                         type="button"
                         className="pro-btn-hold"
                         onClick={handleCompleteBill}
-                        disabled={cart.length === 0 || isSubmittingBill || isHoldingBill}
+                        disabled={
+                          cart.length === 0 ||
+                          isSubmittingBill ||
+                          isHoldingBill ||
+                          (paymentMethod === 'Split' && !isSplitBalanced)
+                        }
                         title="Guest wants to pay upfront before eating"
                       >
                         <IconCheck size={14} />
@@ -1658,7 +1901,12 @@ export const PosBilling: React.FC<PosBillingProps> = ({
                       type="button"
                       className="pro-btn-settle"
                       onClick={handleCompleteBill}
-                      disabled={cart.length === 0 || isSubmittingBill || isHoldingBill}
+                      disabled={
+                        cart.length === 0 ||
+                        isSubmittingBill ||
+                        isHoldingBill ||
+                        (paymentMethod === 'Split' && !isSplitBalanced)
+                      }
                     >
                       {isSubmittingBill ? (
                         <>
@@ -1753,6 +2001,14 @@ export const PosBilling: React.FC<PosBillingProps> = ({
           changeDue={
             settledBillData?.changeDue ??
             (paymentMethod === 'Cash' ? changeDue : 0)
+          }
+          splitCashAmount={
+            settledBillData?.splitCashAmount ??
+            (paymentMethod === 'Split' ? splitCashVal : undefined)
+          }
+          splitCardAmount={
+            settledBillData?.splitCardAmount ??
+            (paymentMethod === 'Split' ? splitCardVal : undefined)
           }
           onClose={() => setShowReceiptModal(false)}
           onNewSale={handleNewSale}

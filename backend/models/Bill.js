@@ -102,6 +102,16 @@ const billSchema = new mongoose.Schema(
       default: 0,
       min: 0
     },
+    splitCashAmount: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+    splitCardAmount: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
     refundReason: {
       type: String,
       default: ''

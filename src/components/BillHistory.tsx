@@ -28,7 +28,7 @@ interface BillHistoryProps {
 }
 
 type DateRangeFilter = 'All' | 'Today' | 'Yesterday' | 'Last 7 Days' | 'This Month'
-type PaymentFilter = 'All' | 'Cash' | 'Card'
+type PaymentFilter = 'All' | 'Cash' | 'Card' | 'Split'
 type OrderTypeFilter = 'All' | BillOrderType
 type StatusFilter = 'All' | BillStatus
 
@@ -162,9 +162,18 @@ export const BillHistory: React.FC<BillHistoryProps> = ({ onNavigate }) => {
       // Payment Filter
       let matchesPayment = true
       if (paymentFilter === 'Cash') {
-        matchesPayment = b.paymentMethod === 'Cash'
+        matchesPayment =
+          b.paymentMethod === 'Cash' ||
+          (!b.paymentMethod.toLowerCase().includes('split') &&
+            b.paymentMethod.toLowerCase().includes('cash'))
       } else if (paymentFilter === 'Card') {
-        matchesPayment = b.paymentMethod.startsWith('Card')
+        matchesPayment =
+          !b.paymentMethod.toLowerCase().includes('split') &&
+          b.paymentMethod.startsWith('Card')
+      } else if (paymentFilter === 'Split') {
+        matchesPayment =
+          b.paymentMethod.toLowerCase().includes('split') ||
+          ((b.splitCashAmount ?? 0) > 0 && (b.splitCardAmount ?? 0) > 0)
       }
 
       // Order Type Filter
@@ -182,12 +191,30 @@ export const BillHistory: React.FC<BillHistoryProps> = ({ onNavigate }) => {
     const totalCount = filteredBills.length
     const settledBills = filteredBills.filter((b) => b.status === 'Settled')
     const totalSales = settledBills.reduce((sum, b) => sum + b.total, 0)
-    const cashSales = settledBills
-      .filter((b) => b.paymentMethod === 'Cash')
-      .reduce((sum, b) => sum + b.total, 0)
-    const cardSales = settledBills
-      .filter((b) => b.paymentMethod.startsWith('Card'))
-      .reduce((sum, b) => sum + b.total, 0)
+    const cashSales = settledBills.reduce((sum, b) => {
+      if (b.splitCashAmount !== undefined && b.splitCashAmount > 0) {
+        return sum + b.splitCashAmount
+      }
+      if (
+        b.paymentMethod.toLowerCase().includes('cash') &&
+        !b.paymentMethod.toLowerCase().includes('split')
+      ) {
+        return sum + b.total
+      }
+      return sum
+    }, 0)
+    const cardSales = settledBills.reduce((sum, b) => {
+      if (b.splitCardAmount !== undefined && b.splitCardAmount > 0) {
+        return sum + b.splitCardAmount
+      }
+      if (
+        b.paymentMethod.toLowerCase().includes('card') &&
+        !b.paymentMethod.toLowerCase().includes('split')
+      ) {
+        return sum + b.total
+      }
+      return sum
+    }, 0)
 
     return { totalCount, totalSales, cashSales, cardSales }
   }, [filteredBills])
@@ -531,6 +558,7 @@ export const BillHistory: React.FC<BillHistoryProps> = ({ onNavigate }) => {
               <option value="All">All Payments</option>
               <option value="Cash">Cash</option>
               <option value="Card">Card</option>
+              <option value="Split">Split (Cash + Card)</option>
             </select>
           </div>
 
@@ -639,7 +667,9 @@ export const BillHistory: React.FC<BillHistoryProps> = ({ onNavigate }) => {
                     {/* Payment Method */}
                     <td>
                       <div className="payment-method-cell">
-                        {bill.paymentMethod === 'Cash' ? (
+                        {bill.paymentMethod.toLowerCase().includes('split') ? (
+                          <span style={{ color: '#0d9488', fontSize: '13px' }}>⚡</span>
+                        ) : bill.paymentMethod === 'Cash' ? (
                           <IconCash size={14} className="pay-icon pay-cash" />
                         ) : (
                           <IconCard size={14} className="pay-icon pay-card" />
@@ -1105,6 +1135,8 @@ export const BillHistory: React.FC<BillHistoryProps> = ({ onNavigate }) => {
           total={reprintBill.total}
           amountTendered={reprintBill.amountTendered}
           changeDue={reprintBill.changeDue}
+          splitCashAmount={reprintBill.splitCashAmount}
+          splitCardAmount={reprintBill.splitCardAmount}
           isReprint={true}
           autoPrint={false}
           onClose={() => setReprintBill(null)}
@@ -1128,6 +1160,8 @@ export const BillHistory: React.FC<BillHistoryProps> = ({ onNavigate }) => {
           total={kotBill.total}
           amountTendered={kotBill.amountTendered}
           changeDue={kotBill.changeDue}
+          splitCashAmount={kotBill.splitCashAmount}
+          splitCardAmount={kotBill.splitCardAmount}
           isReprint={true}
           initialView="kitchen"
           autoPrint={false}

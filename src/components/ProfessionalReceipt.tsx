@@ -30,6 +30,8 @@ export interface ProfessionalReceiptProps {
   total: number
   amountTendered?: number
   changeDue?: number
+  splitCashAmount?: number
+  splitCardAmount?: number
   isReprint?: boolean
   autoPrint?: boolean
   initialView?: 'customer' | 'kitchen'
@@ -52,6 +54,8 @@ export const ProfessionalReceipt: React.FC<ProfessionalReceiptProps> = ({
   total,
   amountTendered,
   changeDue,
+  splitCashAmount,
+  splitCardAmount,
   isReprint = false,
   autoPrint = false,
   initialView = 'customer',
@@ -59,7 +63,29 @@ export const ProfessionalReceipt: React.FC<ProfessionalReceiptProps> = ({
   onNewSale
 }) => {
   const [receiptView, setReceiptView] = useState<'customer' | 'kitchen'>(initialView)
-  const isCash = paymentMethod.toLowerCase().includes('cash')
+
+  const isSplit =
+    paymentMethod.toLowerCase().includes('split') ||
+    (splitCashAmount !== undefined && splitCashAmount > 0 && splitCardAmount !== undefined && splitCardAmount > 0)
+  const isCash = !isSplit && paymentMethod.toLowerCase().includes('cash')
+
+  const resolvedSplitCash =
+    splitCashAmount ??
+    (isSplit
+      ? (() => {
+          const match = paymentMethod.match(/Cash:\s*(?:Rs\.\s*)?([0-9,.]+)/i)
+          return match ? parseFloat(match[1].replace(/,/g, '')) : undefined
+        })()
+      : undefined)
+
+  const resolvedSplitCard =
+    splitCardAmount ??
+    (isSplit
+      ? (() => {
+          const match = paymentMethod.match(/Card:\s*(?:Rs\.\s*)?([0-9,.]+)/i)
+          return match ? parseFloat(match[1].replace(/,/g, '')) : undefined
+        })()
+      : undefined)
 
   // Calculate reliable cash tendered and change due
   const safeTotal = Number(total || 0)
@@ -68,7 +94,9 @@ export const ProfessionalReceipt: React.FC<ProfessionalReceiptProps> = ({
       ? amountTendered
       : isCash
         ? safeTotal
-        : safeTotal
+        : isSplit
+          ? (resolvedSplitCash ?? 0) + (resolvedSplitCard ?? 0)
+          : safeTotal
   const safeChange =
     typeof changeDue === 'number'
       ? changeDue
@@ -134,6 +162,8 @@ export const ProfessionalReceipt: React.FC<ProfessionalReceiptProps> = ({
         total: safeTotal,
         amountTendered: safeTendered,
         changeDue: safeChange,
+        splitCashAmount: resolvedSplitCash,
+        splitCardAmount: resolvedSplitCard,
         status: 'Settled'
       })
     }
@@ -432,7 +462,28 @@ export const ProfessionalReceipt: React.FC<ProfessionalReceiptProps> = ({
                       <strong className="t-tender-val">{paymentMethod.toUpperCase()}</strong>
                     </div>
 
-                    {isCash ? (
+                    {isSplit ? (
+                      <>
+                        <div className="t-flex t-tender-row" style={{ marginTop: '2px' }}>
+                          <span className="t-tender-lbl">💵 CASH PORTION:</span>
+                          <strong className="t-tender-val">{formatLKR(resolvedSplitCash ?? 0)}</strong>
+                        </div>
+                        <div className="t-flex t-tender-row">
+                          <span className="t-tender-lbl">💳 CARD CHARGED:</span>
+                          <strong className="t-tender-val">{formatLKR(resolvedSplitCard ?? 0)}</strong>
+                        </div>
+                        {safeChange > 0 && (
+                          <div className="t-flex t-tender-row t-highlight-change" style={{ marginTop: '3px' }}>
+                            <span className="t-tender-lbl">CHANGE RETURNED (ඉතිරි මුදල):</span>
+                            <strong className="t-tender-val t-change-val">{formatLKR(safeChange)}</strong>
+                          </div>
+                        )}
+                        <div className="t-flex t-tender-row">
+                          <span className="t-tender-lbl">TRANSACTION STATUS:</span>
+                          <span className="t-tender-val">APPROVED (SPLIT COMPLETE)</span>
+                        </div>
+                      </>
+                    ) : isCash ? (
                       <>
                         <div className="t-flex t-tender-row t-highlight-tendered">
                           <span className="t-tender-lbl">CUSTOMER TENDERED (දෙන මුදල):</span>
@@ -477,7 +528,7 @@ export const ProfessionalReceipt: React.FC<ProfessionalReceiptProps> = ({
                   <span className="pro-ig">Follow Us on Instagram: @catamaranbeachrestaurant</span>
                   <span className="pro-visit-again">Please Visit Us Again</span>
 
-                  <span className="t-paper-cut">[ - - - - - - - - - THANK YOU - - - - - - - - - ]</span>
+                  <span className="t-paper-cut">[ - - - - - - - THANK YOU  - - - - - - - ]</span>
 
                   {/* Software Credit */}
                   <div className="pro-software-credit">

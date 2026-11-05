@@ -659,7 +659,9 @@ app.post('/api/bills', async (req, res) => {
       cashier,
       notes,
       amountTendered,
-      changeDue
+      changeDue,
+      splitCashAmount,
+      splitCardAmount
     } = req.body;
 
     const targetStatus = requestedStatus === 'Open' ? 'Open' : 'Settled';
@@ -870,6 +872,8 @@ app.post('/api/bills', async (req, res) => {
           cashier: cashier || 'Kasun P.',
           amountTendered: Number(amountTendered) || 0,
           changeDue: Number(changeDue) || 0,
+          splitCashAmount: Number(splitCashAmount) || 0,
+          splitCardAmount: Number(splitCardAmount) || 0,
           closedAt: targetStatus === 'Settled' ? nowIso : '',
           notes: notes ? String(notes).trim() : ''
         };
@@ -1328,7 +1332,17 @@ app.post('/api/bills/:id/pay', async (req, res) => {
       return res.status(400).json({ message: 'Invalid bill ID' });
     }
 
-    const { paymentMethod, discount, serviceCharge, cashier, orderType, amountTendered, changeDue } = req.body;
+    const {
+      paymentMethod,
+      discount,
+      serviceCharge,
+      cashier,
+      orderType,
+      amountTendered,
+      changeDue,
+      splitCashAmount,
+      splitCardAmount
+    } = req.body;
 
     const paidBill = await executeInTransaction(async (sessionOpt) => {
       const bill = await Bill.findById(req.params.id, null, sessionOpt);
@@ -1358,6 +1372,8 @@ app.post('/api/bills/:id/pay', async (req, res) => {
 
       // Update payment information
       bill.paymentMethod = paymentMethod || bill.paymentMethod || 'Cash';
+      if (splitCashAmount !== undefined) bill.splitCashAmount = Number(splitCashAmount) || 0;
+      if (splitCardAmount !== undefined) bill.splitCardAmount = Number(splitCardAmount) || 0;
       if (cashier) bill.cashier = cashier;
       if (orderType) bill.orderType = orderType;
 

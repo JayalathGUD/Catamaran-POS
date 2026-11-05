@@ -3256,8 +3256,8 @@ textarea {
 
 .pro-payment-tabs {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
   background: #f1f5f9;
   padding: 4px;
   border-radius: 10px;
@@ -3418,6 +3418,157 @@ textarea {
 
 .pro-change-short .pro-change-amount {
   color: #b45309;
+}
+
+/* =========================================================
+   PRO SPLIT PAYMENT (CASH + CARD) SECTION
+   ========================================================= */
+
+.pro-split-container {
+  background: #ffffff;
+  border: 1.5px solid #ccfbf1;
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 1px 3px rgba(13, 148, 136, 0.05);
+}
+
+.pro-split-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.pro-split-title {
+  font-size: 11px;
+  font-weight: 800;
+  color: #0f766e;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.pro-split-preset-pill {
+  font-size: 9.5px;
+  font-weight: 700;
+  padding: 2.5px 8px;
+  border-radius: 999px;
+  background: #f0fdfa;
+  border: 1px solid #5eead4;
+  color: #0d9488;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pro-split-preset-pill:hover {
+  background: #0d9488;
+  color: #ffffff;
+}
+
+.pro-split-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.pro-split-box {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pro-split-box-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #334155;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pro-split-box .pro-tender-input-wrap {
+  width: 100%;
+}
+
+.pro-split-cash-received-block {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pro-split-status-card {
+  border-radius: 8px;
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+}
+
+.pro-split-balanced {
+  background: #ecfdf5;
+  border: 1.5px solid #a7f3d0;
+  color: #065f46;
+}
+
+.pro-split-unbalanced {
+  background: #fffbeb;
+  border: 1.5px solid #fde68a;
+  color: #92400e;
+}
+
+.pro-split-status-badge {
+  font-size: 9.5px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #10b981;
+  color: #ffffff;
+  display: inline-block;
+  margin-bottom: 2px;
+}
+
+.pro-split-status-badge.unbalanced {
+  background: #f59e0b;
+}
+
+.pro-split-summary-text {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #064e3b;
+}
+
+.pro-split-unbalanced-msg {
+  font-size: 11px;
+  font-weight: 700;
+  color: #b45309;
+}
+
+.pro-split-change-box {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.pro-split-change-lbl {
+  font-size: 9px;
+  font-weight: 800;
+  color: #047857;
+  text-transform: uppercase;
+}
+
+.pro-split-change-val {
+  font-size: 15px;
+  font-weight: 900;
+  color: #047857;
 }
 
 /* =========================================================

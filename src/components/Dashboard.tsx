@@ -164,15 +164,27 @@ export const Dashboard: React.FC<DashboardProps> = ({
   }, [settledBills])
 
   const baseCash = useMemo(() => {
-    return settledBills
-      .filter((b) => b.paymentMethod.toLowerCase().includes('cash'))
-      .reduce((acc, b) => acc + b.total, 0)
+    return settledBills.reduce((acc, b) => {
+      if (b.splitCashAmount !== undefined && b.splitCashAmount > 0) {
+        return acc + b.splitCashAmount
+      }
+      if (b.paymentMethod.toLowerCase().includes('cash') && !b.paymentMethod.toLowerCase().includes('split')) {
+        return acc + b.total
+      }
+      return acc
+    }, 0)
   }, [settledBills])
 
   const baseCard = useMemo(() => {
-    return settledBills
-      .filter((b) => b.paymentMethod.toLowerCase().includes('card'))
-      .reduce((acc, b) => acc + b.total, 0)
+    return settledBills.reduce((acc, b) => {
+      if (b.splitCardAmount !== undefined && b.splitCardAmount > 0) {
+        return acc + b.splitCardAmount
+      }
+      if (b.paymentMethod.toLowerCase().includes('card') && !b.paymentMethod.toLowerCase().includes('split')) {
+        return acc + b.total
+      }
+      return acc
+    }, 0)
   }, [settledBills])
 
   const baseTransactions = settledBills.length
@@ -982,7 +994,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
                       <td>
                         <div className="payment-method-cell">
-                          {bill.paymentMethod.startsWith('Cash') ? (
+                          {bill.paymentMethod.toLowerCase().includes('split') ? (
+                            <span style={{ color: '#0d9488', fontSize: '13px' }}>⚡</span>
+                          ) : bill.paymentMethod.startsWith('Cash') ? (
                             <IconCash size={14} className="pay-icon pay-cash" />
                           ) : (
                             <IconCard size={14} className="pay-icon pay-card" />

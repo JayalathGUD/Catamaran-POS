@@ -12,7 +12,7 @@ export type NavigationPage =
   | 'Reports'
   | 'Settings'
 
-export type PaymentMethod = 'Cash' | 'Card (Visa/MC)' | 'Card (Amex)'
+export type PaymentMethod = 'Cash' | 'Card (Visa/MC)' | 'Card (Amex)' | 'Split (Cash + Card)' | string
 
 export type SaleType =
   | 'Restaurant & Cafe' | 'Surfboard Rental' | 'Surf Lesson' | 'Retail & Gear' | 'Package Combo'
@@ -23,7 +23,7 @@ export type PosOrderType = 'Dine-in' | 'Takeaway'
 
 export type BillOrderType = PosOrderType
 
-export type PosPaymentType = 'Cash' | 'Card'
+export type PosPaymentType = 'Cash' | 'Card' | 'Split'
 
 export type MenuCategory = 'Food' | 'Drinks' | 'Surf Lessons' | 'Other Services'
 export type MenuFilterCategory = 'All' | MenuCategory
@@ -91,6 +91,8 @@ export interface HistoryBill {
   total: number
   amountTendered?: number
   changeDue?: number
+  splitCashAmount?: number
+  splitCardAmount?: number
   status: BillStatus
   paymentStatus?: 'Paid' | 'Partially Paid' | 'Unpaid'
   totalPaid?: number
@@ -113,6 +115,8 @@ export interface RecentBill {
   total: number
   amountTendered?: number
   changeDue?: number
+  splitCashAmount?: number
+  splitCardAmount?: number
   status: 'Settled' | 'Refunded' | 'Open' | 'Cancelled'
   cashier: string
   items: BillItem[]
