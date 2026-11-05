@@ -227,7 +227,7 @@ export const OpenBills: React.FC<OpenBillsProps> = ({
       <div className="open-bills-top-bar">
         <div>
           <div className="open-bills-kicker-row">
-            <span className="open-bills-kicker">RESTAURANT &amp; BAR TAB MANAGEMENT</span>
+            <span className="open-bills-kicker">🌴 BEACHFRONT DINING &amp; BAR TAB MANAGEMENT</span>
             <span className="open-bills-live-badge">
               <span className="live-pulse-dot" />
               {bills.length} ACTIVE {bills.length === 1 ? 'TAB' : 'TABS'}

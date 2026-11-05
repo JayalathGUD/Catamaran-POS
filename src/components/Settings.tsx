@@ -79,6 +79,9 @@ export const Settings: React.FC<SettingsProps> = ({ onNavigate }) => {
             <IconSettings size={22} />
           </div>
           <div>
+            <div style={{ marginBottom: '4px' }}>
+              <span className="system-location-tag">⚙️ Catamaran POS Configuration</span>
+            </div>
             <h1 className="settings-title">System &amp; POS Settings</h1>
             <p className="settings-subtitle">
               Manage the active Cashier Name, receipt branding, 58mm thermal printer parameters, and business metadata.

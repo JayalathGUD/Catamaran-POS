@@ -29,3 +29,4 @@ export function playLowStockAlertSound(): void {
     // Audio may be suppressed by browser autoplay policy before user gesture
   }
 }
+

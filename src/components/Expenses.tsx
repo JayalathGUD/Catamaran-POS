@@ -183,7 +183,7 @@ export function Expenses(): React.JSX.Element {
     <section className="expenses-page">
       <header className="expenses-header">
         <div>
-          <p className="expenses-eyebrow">FINANCE MANAGEMENT</p>
+          <p className="expenses-eyebrow">💰 FINANCIAL OPERATIONS &amp; EXPENSE AUDITING</p>
           <h1>Expenses</h1>
           <p className="expenses-subtitle">
             Track operating costs and monitor restaurant spending.

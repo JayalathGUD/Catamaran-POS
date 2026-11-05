@@ -729,7 +729,10 @@ export const SurfLessons: React.FC<SurfLessonsProps> = ({ onNavigate: _onNavigat
             <IconSurfLessons size={22} />
           </div>
           <div>
-            <h1 className="surf-title">Surf Lessons</h1>
+            <div style={{ marginBottom: '4px' }}>
+              <span className="system-location-tag">🌊 Catamaran Surf Academy · Dewata Point</span>
+            </div>
+            <h1 className="surf-title">Surf Lessons &amp; Coaching</h1>
             <p className="surf-subtitle">
               Walk-in coaching sessions, fleet surfboard allocation & instructor roster
             </p>

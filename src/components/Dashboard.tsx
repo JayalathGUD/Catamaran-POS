@@ -349,20 +349,29 @@ export const Dashboard: React.FC<DashboardProps> = ({
         </div>
       )}
 
-      {/* Dashboard Header Banner */}
+      {/* Dashboard Header Banner with Official Beachfront Logo */}
       <section className="dashboard-header-panel">
-        <div className="header-meta">
-          <div className="header-top-row">
-            <span className="system-location-tag">Dewata Beach · Sri Lanka</span>
-            <div className="demo-notice-badge">
-              <span className="demo-pulse-dot" style={{ backgroundColor: '#10b981' }} />
-              <span>MONGODB ATLAS · LIVE DATA</span>
+        <div className="dashboard-header-left">
+          {/* <div className="dashboard-logo-badge">
+            <img
+              src={logoImg}
+              alt="Catamaran Beach Restaurant Logo"
+              className="dashboard-brand-logo-img"
+            />
+          </div> */}
+          <div className="header-meta">
+            <div className="header-top-row">
+              <span className="system-location-tag">🌴 Dewata Beach · Galle · Sri Lanka</span>
+              <div className="demo-notice-badge">
+                <span className="demo-pulse-dot" style={{ backgroundColor: '#10b981' }} />
+                <span> ONLINE </span>
+              </div>
             </div>
+            <h1 className="dashboard-heading">Beach Club &amp; POS Dashboard</h1>
+            <p className="dashboard-subheading">
+              Live beachfront operations summary for <strong>{todayFormatted}</strong> · Shift 01 (07:00 – 19:00)
+            </p>
           </div>
-          <h1 className="dashboard-heading">Dashboard Overview</h1>
-          <p className="dashboard-subheading">
-            Live business summary for <strong>{todayFormatted}</strong> · Shift 01 (07:00 – 19:00)
-          </p>
         </div>
 
         {/* Primary Quick Actions */}
@@ -421,8 +430,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         <div className="strip-content">
           <IconCheck size={14} className="strip-icon" style={{ color: '#10b981' }} />
           <span className="strip-text">
-            <strong>MongoDB Atlas Live Connected:</strong> Real-time figures for bills, rentals, and
-            warehouse inventory are synced with your cloud database.
+            <strong> Live Connected:</strong>
           </span>
         </div>
         <span
@@ -1067,7 +1075,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               className="demo-footer-badge"
               style={{ backgroundColor: '#10b981', color: '#fff' }}
             >
-              MongoDB Atlas Live
+              Live Connect
             </span>
           </div>
         </div>

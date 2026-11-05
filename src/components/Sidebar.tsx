@@ -1,8 +1,9 @@
 import React from 'react'
+import logoImg from '../assets/logo.png'
 import { NavigationPage } from '../types'
 import {
   IconBillHistory,
-  IconBrandSurf,
+
   IconDashboard,
   IconExpenses,
   IconInventory,
@@ -104,7 +105,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Brand Header */}
       <div className="sidebar-brand">
         <div className="brand-logo-container">
-          <IconBrandSurf size={26} className="brand-logo-icon" />
+          <img src={logoImg} alt="Catamaran Logo" className="brand-sidebar-logo-img" />
         </div>
         <div className="brand-text-container">
           <span className="brand-title">Catamaran Surf Club</span>

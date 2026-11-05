@@ -707,7 +707,7 @@ export const Inventory: React.FC<InventoryProps> = ({ onNavigate }) => {
               <span>Dashboard</span>
             </button>
             <span className="crumb-separator">/</span>
-            <span className="pos-kicker">Stock & Warehouse Control</span>
+            <span className="pos-kicker">📦 Beach Club Stock &amp; Warehouse Control</span>
             <div className="demo-notice-badge">
               <span className="demo-pulse-dot" style={{ backgroundColor: '#10b981' }} />
               <span>MONGODB ATLAS · LIVE INVENTORY</span>

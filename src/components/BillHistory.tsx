@@ -334,7 +334,7 @@ export const BillHistory: React.FC<BillHistoryProps> = ({ onNavigate }) => {
               <span>Dashboard</span>
             </button>
             <span className="crumb-separator">/</span>
-            <span className="pos-kicker">Accounting & Audits</span>
+            <span className="pos-kicker">🧾 Beach Club Invoices &amp; Audits</span>
             <div
               className="demo-notice-badge"
               style={

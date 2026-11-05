@@ -73,18 +73,18 @@ export const ProfessionalReceipt: React.FC<ProfessionalReceiptProps> = ({
     splitCashAmount ??
     (isSplit
       ? (() => {
-          const match = paymentMethod.match(/Cash:\s*(?:Rs\.\s*)?([0-9,.]+)/i)
-          return match ? parseFloat(match[1].replace(/,/g, '')) : undefined
-        })()
+        const match = paymentMethod.match(/Cash:\s*(?:Rs\.\s*)?([0-9,.]+)/i)
+        return match ? parseFloat(match[1].replace(/,/g, '')) : undefined
+      })()
       : undefined)
 
   const resolvedSplitCard =
     splitCardAmount ??
     (isSplit
       ? (() => {
-          const match = paymentMethod.match(/Card:\s*(?:Rs\.\s*)?([0-9,.]+)/i)
-          return match ? parseFloat(match[1].replace(/,/g, '')) : undefined
-        })()
+        const match = paymentMethod.match(/Card:\s*(?:Rs\.\s*)?([0-9,.]+)/i)
+        return match ? parseFloat(match[1].replace(/,/g, '')) : undefined
+      })()
       : undefined)
 
   // Calculate reliable cash tendered and change due
@@ -534,7 +534,7 @@ export const ProfessionalReceipt: React.FC<ProfessionalReceiptProps> = ({
                   )}
                   <span className="pro-visit-again">Please Visit Us Again</span>
 
-                  <span className="t-paper-cut">[ - - - - - - - THANK YOU  - - - - - - - ]</span>
+                  <span className="t-paper-cut">[ - - - - THANK YOU - - - - ]</span>
 
                   {/* Software Credit */}
                   <div className="pro-software-credit">

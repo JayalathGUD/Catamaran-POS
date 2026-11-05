@@ -1007,7 +1007,7 @@ export const SurfboardRentals: React.FC<SurfboardRentalsProps> = ({
       <section className="rentals-header-panel">
         <div className="rentals-header-meta">
           <div className="rentals-top-row">
-            <span className="system-location-tag">Catamaran Surf Club · Dewata Point</span>
+            <span className="system-location-tag">🏄 Catamaran Surf Club · Dewata Point</span>
             <div
               className="demo-notice-badge"
               style={{ backgroundColor: '#f0fdf4', borderColor: '#bbf7d0', color: '#166534' }}

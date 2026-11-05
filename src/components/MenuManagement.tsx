@@ -706,7 +706,7 @@ export const MenuManagement: React.FC<MenuManagementProps> = ({ onNavigate }) =>
               <span>Dashboard</span>
             </button>
             <span className="crumb-separator">/</span>
-            <span className="pos-kicker">Catalog & Sales Items</span>
+            <span className="pos-kicker">🍽️ Cafe, Bar &amp; Surf Packages Catalogue</span>
             <div
               className="demo-notice-badge"
               style={

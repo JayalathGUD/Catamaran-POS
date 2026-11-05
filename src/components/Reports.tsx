@@ -610,7 +610,7 @@ export const Reports: React.FC = () => {
         <div className="reports-header-text">
           <div className="reports-header-badge">
             <IconReports size={14} />
-            <span>OPERATIONAL INTELLIGENCE & AUDITS</span>
+            <span>📊 OPERATIONAL INTELLIGENCE &amp; BEACH CLUB AUDITS</span>
           </div>
           <h1 className="reports-title">Reports & Business Analytics</h1>
           <p className="reports-subtitle">
