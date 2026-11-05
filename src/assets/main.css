@@ -2687,21 +2687,46 @@ textarea {
   border-radius: var(--radius-xl);
   box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.03);
   height: 100%;
+  max-height: 100%;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
   background: #ffffff;
+  scrollbar-width: thin;
+  scrollbar-color: #94a3b8 #f1f5f9;
+}
+
+.pos-cart-panel::-webkit-scrollbar {
+  width: 6px;
+}
+
+.pos-cart-panel::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 999px;
+}
+
+.pos-cart-panel::-webkit-scrollbar-thumb {
+  background: #94a3b8;
+  border-radius: 999px;
+}
+
+.pos-cart-panel::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
 }
 
 /* Cart Panel Header */
 .cart-panel-header {
-  padding: 14px 18px;
+  padding: 12px 16px;
   border-bottom: 1px solid #e2e8f0;
   background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 .cart-title-row {
@@ -2838,23 +2863,21 @@ textarea {
 
 /* Cart Items Container */
 .cart-items-container {
-  flex: 1;
-  min-height: 140px;
-  max-height: 280px;
+  flex-shrink: 0;
+  max-height: 200px;
   overflow-y: auto;
-  padding: 12px 14px;
+  padding: 8px 12px;
   background: #ffffff;
 }
 
 .cart-empty-state {
-  height: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 30px 20px;
-  gap: 6px;
+  padding: 20px 14px;
+  gap: 4px;
 }
 
 .cart-empty-icon-wrap {
@@ -3006,12 +3029,12 @@ textarea {
    ========================================================= */
 
 .pro-cart-summary {
-  padding: 14px 16px;
+  padding: 12px 14px 24px 14px;
   background: #f8fafc;
   border-top: 1px solid #e2e8f0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   flex-shrink: 0;
 }
 
@@ -3428,10 +3451,10 @@ textarea {
   background: #ffffff;
   border: 1.5px solid #ccfbf1;
   border-radius: 10px;
-  padding: 10px 12px;
+  padding: 8px 10px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   box-shadow: 0 1px 3px rgba(13, 148, 136, 0.05);
 }
 
@@ -3496,10 +3519,10 @@ textarea {
   background: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
-  padding: 8px 10px;
+  padding: 6px 8px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
 }
 
 .pro-split-status-card {
