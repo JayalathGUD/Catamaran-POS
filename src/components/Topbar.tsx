@@ -1,21 +1,43 @@
 import { usePosSettings } from '../utils/settingsStore'
-import React from 'react'
-import { NavigationPage } from '../types'
-import { IconClock, IconInfo } from './Icons'
+import React, { useEffect, useRef, useState } from 'react'
+import { InventoryItem, NavigationPage } from '../types'
+import { IconAlertTriangle, IconChevronRight, IconClock, IconInfo, IconX } from './Icons'
 
 interface TopbarProps {
   currentPage: NavigationPage
   onResetDemo?: () => void
+  lowStockItems?: InventoryItem[]
+  onNavigate?: (page: NavigationPage) => void
 }
 
-export const Topbar: React.FC<TopbarProps> = ({ currentPage }) => {
+export const Topbar: React.FC<TopbarProps> = ({ currentPage, lowStockItems = [], onNavigate }) => {
   const { settings } = usePosSettings()
+  const [showStockDropdown, setShowStockDropdown] = useState<boolean>(false)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
   const todayFormatted = new Intl.DateTimeFormat('en-GB', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
     year: 'numeric'
   }).format(new Date())
+
+  // Close dropdown when clicked outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent): void {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowStockDropdown(false)
+      }
+    }
+    if (showStockDropdown) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showStockDropdown])
+
+  const lowStockCount = lowStockItems.length
 
   return (
     <header className="app-topbar">
@@ -39,6 +61,118 @@ export const Topbar: React.FC<TopbarProps> = ({ currentPage }) => {
             LIVE SYSTEM
           </span>
         </div>
+
+        {/* Real-Time Low Stock Alert Button & Popover */}
+        <div className="topbar-alert-wrapper" ref={dropdownRef} style={{ position: 'relative' }}>
+          <button
+            type="button"
+            className={`topbar-stock-alert-btn ${lowStockCount > 0 ? 'alert-active' : 'alert-healthy'}`}
+            onClick={() => setShowStockDropdown((prev) => !prev)}
+            title={
+              lowStockCount > 0
+                ? `${lowStockCount} items below minimum stock threshold! Click to inspect.`
+                : 'All tracked inventory items are at healthy levels.'
+            }
+          >
+            {lowStockCount > 0 ? (
+              <>
+                <span className="stock-alert-dot-pulse" />
+                <IconAlertTriangle size={14} className="stock-alert-icon" />
+                <span className="stock-alert-text">
+                  <strong>{lowStockCount}</strong> Low Stock
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="stock-healthy-dot" />
+                <span className="stock-healthy-text">Stock OK</span>
+              </>
+            )}
+          </button>
+
+          {/* Floating Dropdown Inspection Popover */}
+          {showStockDropdown && (
+            <div className="topbar-stock-popover" onClick={(e) => e.stopPropagation()}>
+              <div className="topbar-stock-popover-header">
+                <div className="popover-title-row">
+                  <IconAlertTriangle
+                    size={16}
+                    style={{ color: lowStockCount > 0 ? '#b45309' : '#059669' }}
+                  />
+                  <div>
+                    <h4 className="popover-heading">Real-Time Stock Alerts</h4>
+                    <span className="popover-sub">
+                      {lowStockCount > 0
+                        ? `${lowStockCount} ${lowStockCount === 1 ? 'item requires' : 'items require'} attention`
+                        : 'All items within safe levels'}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="popover-close-btn"
+                  onClick={() => setShowStockDropdown(false)}
+                  title="Close popup"
+                >
+                  <IconX size={14} />
+                </button>
+              </div>
+
+              <div className="topbar-stock-popover-body">
+                {lowStockCount === 0 ? (
+                  <div className="stock-healthy-empty">
+                    <span style={{ fontSize: '24px' }}>✅</span>
+                    <strong style={{ fontSize: '12px', color: '#065f46' }}>Inventory Levels Healthy</strong>
+                    <p style={{ fontSize: '11px', color: '#64748b', margin: '2px 0 0' }}>
+                      All tracked products are above their safety reorder thresholds.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="topbar-stock-items-list">
+                    {lowStockItems.map((item) => {
+                      const isCritical = item.currentQuantity <= 0
+                      return (
+                        <div key={item.id} className="topbar-stock-item-row">
+                          <div className="item-info">
+                            <span className="item-code-badge">{item.code}</span>
+                            <strong className="item-name">{item.productName}</strong>
+                            <span className="item-cat">{item.category}</span>
+                          </div>
+                          <div className="item-stock-box">
+                            <span className={`stock-status-pill ${isCritical ? 'critical' : 'warning'}`}>
+                              {isCritical ? 'Out of Stock (0)' : `Only ${item.currentQuantity} left`}
+                            </span>
+                            <span className="stock-min-hint">
+                              Min: {item.reorderThreshold} {item.unit || ''}
+                            </span>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {onNavigate && (
+                <div className="topbar-stock-popover-footer">
+                  <button
+                    type="button"
+                    className="topbar-go-inventory-btn"
+                    onClick={() => {
+                      setShowStockDropdown(false)
+                      onNavigate('Inventory')
+                    }}
+                  >
+                    <span>Open Inventory Management</span>
+                    <IconChevronRight size={14} />
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="topbar-divider" />
 
         <div className="topbar-divider" />
 

@@ -1,7 +1,8 @@
 import { usePosSettings } from '../utils/settingsStore'
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { ProfessionalReceipt } from './ProfessionalReceipt'
 import { formatLKR, formatLKRCompact } from '../data/demoData'
+import { playLowStockAlertSound } from '../utils/soundHelper'
 import {
   createBill,
   getBillById,
@@ -62,6 +63,10 @@ export const PosBilling: React.FC<PosBillingProps> = ({
   // Live Products from MongoDB Atlas
   const [products, setProducts] = useState<PosProduct[]>([])
   const [inventoryMap, setInventoryMap] = useState<Map<string, number>>(new Map())
+  const [inventoryDetailsMap, setInventoryDetailsMap] = useState<
+    Map<string, { currentQuantity: number; reorderThreshold: number }>
+  >(new Map())
+  const [dismissedLowStockAlert, setDismissedLowStockAlert] = useState<boolean>(false)
   const [isLoadingProducts, setIsLoadingProducts] = useState<boolean>(true)
   const [productError, setProductError] = useState<string | null>(null)
 
@@ -148,7 +153,7 @@ export const PosBilling: React.FC<PosBillingProps> = ({
   }
 
   // Load menu items and live inventory stock from backend API
-  const loadLiveMenu = async (): Promise<void> => {
+  const loadLiveMenu = useCallback(async (): Promise<void> => {
     setIsLoadingProducts(true)
     setProductError(null)
     try {
@@ -161,10 +166,19 @@ export const PosBilling: React.FC<PosBillingProps> = ({
       setProducts(activeItems)
 
       const invMap = new Map<string, number>()
+      const invDetails = new Map<string, { currentQuantity: number; reorderThreshold: number }>()
       invItems.forEach((it) => {
-        if (it.code) invMap.set(it.code.toUpperCase(), it.currentQuantity)
+        if (it.code) {
+          const upperCode = it.code.toUpperCase()
+          invMap.set(upperCode, it.currentQuantity)
+          invDetails.set(upperCode, {
+            currentQuantity: it.currentQuantity,
+            reorderThreshold: it.reorderThreshold ?? 5
+          })
+        }
       })
       setInventoryMap(invMap)
+      setInventoryDetailsMap(invDetails)
     } catch (err: unknown) {
       console.error('Failed to load menu in POS:', err)
       const msg = err instanceof Error ? err.message : 'Could not load menu items'
@@ -173,7 +187,7 @@ export const PosBilling: React.FC<PosBillingProps> = ({
     } finally {
       setIsLoadingProducts(false)
     }
-  }
+  }, [])
 
   useEffect(() => {
     let ignore = false
@@ -190,10 +204,19 @@ export const PosBilling: React.FC<PosBillingProps> = ({
           setProducts(activeItems)
 
           const invMap = new Map<string, number>()
+          const invDetails = new Map<string, { currentQuantity: number; reorderThreshold: number }>()
           invItems.forEach((it) => {
-            if (it.code) invMap.set(it.code.toUpperCase(), it.currentQuantity)
+            if (it.code) {
+              const upperCode = it.code.toUpperCase()
+              invMap.set(upperCode, it.currentQuantity)
+              invDetails.set(upperCode, {
+                currentQuantity: it.currentQuantity,
+                reorderThreshold: it.reorderThreshold ?? 5
+              })
+            }
           })
           setInventoryMap(invMap)
+          setInventoryDetailsMap(invDetails)
           setOpenBillsCount(openBills.length)
         }
       } catch (err: unknown) {
@@ -212,10 +235,16 @@ export const PosBilling: React.FC<PosBillingProps> = ({
 
     initLoad()
 
+    const handleInvUpdated = (): void => {
+      loadLiveMenu().catch(() => {})
+    }
+    window.addEventListener('inventory-updated', handleInvUpdated)
+
     return () => {
       ignore = true
+      window.removeEventListener('inventory-updated', handleInvUpdated)
     }
-  }, [])
+  }, [loadLiveMenu])
 
   // Load active open bill whenever activeOpenBillId prop changes
   useEffect(() => {
@@ -290,6 +319,26 @@ export const PosBilling: React.FC<PosBillingProps> = ({
     })
     return counts
   }, [products])
+
+  // Identify low stock products for real-time alerts & banner
+  const lowStockProducts = useMemo(() => {
+    const list: { product: PosProduct; current: number; threshold: number; isOut: boolean }[] = []
+    for (const p of products) {
+      const code = p.code ? p.code.toUpperCase().trim() : ''
+      if (code && inventoryDetailsMap.has(code)) {
+        const d = inventoryDetailsMap.get(code)!
+        if (d.currentQuantity <= d.reorderThreshold) {
+          list.push({
+            product: p,
+            current: d.currentQuantity,
+            threshold: d.reorderThreshold,
+            isOut: d.currentQuantity <= 0
+          })
+        }
+      }
+    }
+    return list
+  }, [products, inventoryDetailsMap])
 
   // Cart Calculations
   const subtotal = useMemo(() => {
@@ -376,12 +425,25 @@ export const PosBilling: React.FC<PosBillingProps> = ({
       const inCart = cart.find((item) => item.product.id === product.id)?.quantity || 0
 
       if (inCart + 1 > totalAllowed) {
+        playLowStockAlertSound()
         showToast(
           totalAllowed <= 0
-            ? `"${product.name}" is out of stock in inventory.`
-            : `Cannot add more "${product.name}". Only ${totalAllowed} total available.`
+            ? `⛔ "${product.name}" is completely out of stock in inventory.`
+            : `⚠️ Cannot add more "${product.name}". Only ${totalAllowed} total available.`
         )
         return
+      }
+
+      // Check if stock hits zero or drops below threshold after this addition
+      const details = inventoryDetailsMap.get(code)
+      const threshold = details ? details.reorderThreshold : 5
+      const remainingAfter = totalAllowed - (inCart + 1)
+      if (remainingAfter === 0) {
+        playLowStockAlertSound()
+        showToast(`⚠️ You selected the LAST unit of "${product.name}" in stock!`)
+      } else if (remainingAfter <= threshold && inCart === 0) {
+        playLowStockAlertSound()
+        showToast(`⚠️ Notice: "${product.name}" is running low (${remainingAfter} left in stock).`)
       }
     }
 
@@ -409,6 +471,7 @@ export const PosBilling: React.FC<PosBillingProps> = ({
           )?.quantity || 0
         const totalAllowed = available + alreadyOnActiveBill
         if (cartItem.quantity + delta > totalAllowed) {
+          playLowStockAlertSound()
           showToast(
             `Cannot add more "${cartItem.product.name}". Only ${totalAllowed} total available.`
           )
@@ -524,6 +587,7 @@ export const PosBilling: React.FC<PosBillingProps> = ({
         .then((b) => setOpenBillsCount(b.length))
         .catch(() => { })
       await loadLiveMenu().catch(() => { })
+      window.dispatchEvent(new CustomEvent('inventory-updated'))
     } catch (err: unknown) {
       console.error('Failed to keep bill open:', err)
       const msg = err instanceof Error ? err.message : 'Could not save open bill'
@@ -567,6 +631,7 @@ export const PosBilling: React.FC<PosBillingProps> = ({
         .then((b) => setOpenBillsCount(b.length))
         .catch(() => { })
       await loadLiveMenu().catch(() => { })
+      window.dispatchEvent(new CustomEvent('inventory-updated'))
     } catch (err: unknown) {
       console.error('Failed to update open bill:', err)
       const msg = err instanceof Error ? err.message : 'Failed to update bill'
@@ -637,6 +702,12 @@ export const PosBilling: React.FC<PosBillingProps> = ({
       setCompletedBillNumber(updated.billNumber)
       setReceiptModalInitialView('kitchen')
       setShowReceiptModal(true)
+      onOpenBillsChanged?.()
+      getOpenBills()
+        .then((b) => setOpenBillsCount(b.length))
+        .catch(() => { })
+      await loadLiveMenu().catch(() => { })
+      window.dispatchEvent(new CustomEvent('inventory-updated'))
     } catch (err: unknown) {
       console.error('Failed to update open bill:', err)
       const msg = err instanceof Error ? err.message : 'Failed to update bill'
@@ -665,6 +736,7 @@ export const PosBilling: React.FC<PosBillingProps> = ({
         .then((b) => setOpenBillsCount(b.length))
         .catch(() => { })
       await loadLiveMenu().catch(() => { })
+      window.dispatchEvent(new CustomEvent('inventory-updated'))
     } catch (err: unknown) {
       console.error('Failed to cancel bill:', err)
       showToast(err instanceof Error ? err.message : 'Could not cancel bill')
@@ -858,6 +930,7 @@ export const PosBilling: React.FC<PosBillingProps> = ({
 
       // Refresh menu and live inventory stock immediately
       await loadLiveMenu().catch(() => { })
+      window.dispatchEvent(new CustomEvent('inventory-updated'))
     } catch (err: unknown) {
       console.error('Failed to settle bill:', err)
       const msg = err instanceof Error ? err.message : 'Failed to save bill to database'
@@ -1107,6 +1180,44 @@ export const PosBilling: React.FC<PosBillingProps> = ({
             </div>
           </div>
 
+          {/* Real-Time Low Stock Warning Banner */}
+          {lowStockProducts.length > 0 && !dismissedLowStockAlert && (
+            <div className="pos-low-stock-banner" role="alert">
+              <div className="pos-stock-banner-left">
+                <span className="pos-stock-banner-pulse" />
+                <IconAlertTriangle size={18} className="pos-stock-banner-icon" />
+                <div className="pos-stock-banner-text">
+                  <strong className="pos-stock-banner-title">
+                    Low Stock Alert ({lowStockProducts.length} {lowStockProducts.length === 1 ? 'item requires' : 'items require'} attention)
+                  </strong>
+                  <span className="pos-stock-banner-preview">
+                    {lowStockProducts.slice(0, 3).map((item) => (
+                      `${item.product.name} (${item.isOut ? 'Out of Stock' : `${item.current} left`})`
+                    )).join(', ')}
+                    {lowStockProducts.length > 3 ? ` +${lowStockProducts.length - 3} more` : ''}
+                  </span>
+                </div>
+              </div>
+              <div className="pos-stock-banner-actions">
+                <button
+                  type="button"
+                  className="pos-stock-banner-btn"
+                  onClick={() => onNavigate('Inventory')}
+                >
+                  View Inventory
+                </button>
+                <button
+                  type="button"
+                  className="pos-stock-banner-close"
+                  onClick={() => setDismissedLowStockAlert(true)}
+                  title="Dismiss warning banner for this session"
+                >
+                  <IconX size={14} />
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Products Grid */}
           <div className="pos-products-viewport">
             <div className="pos-products-grid">
@@ -1201,40 +1312,47 @@ export const PosBilling: React.FC<PosBillingProps> = ({
                   const code = product.code ? product.code.toUpperCase().trim() : ''
                   const isTracked = Boolean(code && inventoryMap.has(code))
                   const stockAvailable = isTracked ? inventoryMap.get(code)! : null
+                  const threshold =
+                    isTracked && inventoryDetailsMap.has(code)
+                      ? inventoryDetailsMap.get(code)!.reorderThreshold
+                      : 5
                   const isOutOfStock = isTracked && stockAvailable !== null && stockAvailable <= 0
+                  const isLowStock =
+                    isTracked && stockAvailable !== null && stockAvailable > 0 && stockAvailable <= threshold
 
                   return (
                     <button
                       key={product.id}
                       type="button"
-                      className={`pos-product-card ${inCart ? 'product-in-cart' : ''}`}
-                      style={isOutOfStock ? { opacity: 0.65 } : undefined}
+                      className={`pos-product-card ${inCart ? 'product-in-cart' : ''} ${
+                        isOutOfStock ? 'card-out-of-stock' : isLowStock ? 'card-low-stock' : ''
+                      }`}
                       onClick={() => addToCart(product)}
-                      title={isOutOfStock ? `${product.name} is out of stock in inventory` : undefined}
+                      title={
+                        isOutOfStock
+                          ? `${product.name} is OUT OF STOCK in inventory`
+                          : isLowStock
+                            ? `${product.name} has LOW STOCK (Only ${stockAvailable} left, min ${threshold})`
+                            : undefined
+                      }
                     >
                       <div className="product-card-top">
                         <span className={`product-code-tag ${catBadgeTone}`}>{product.code}</span>
                         {isTracked && (
                           <span
-                            className="product-stock-tag"
-                            style={{
-                              fontSize: '11px',
-                              padding: '2px 6px',
-                              borderRadius: '4px',
-                              fontWeight: 600,
-                              backgroundColor: isOutOfStock
-                                ? '#fee2e2'
-                                : stockAvailable! <= 5
-                                  ? '#fef3c7'
-                                  : '#f0fdf4',
-                              color: isOutOfStock
-                                ? '#b91c1c'
-                                : stockAvailable! <= 5
-                                  ? '#b45309'
-                                  : '#15803d'
-                            }}
+                            className={`product-stock-tag ${
+                              isOutOfStock
+                                ? 'stock-tag-critical'
+                                : isLowStock
+                                  ? 'stock-tag-warning'
+                                  : 'stock-tag-healthy'
+                            }`}
                           >
-                            {isOutOfStock ? 'Out of stock' : `${stockAvailable} in stock`}
+                            {isOutOfStock
+                              ? '⛔ Out of stock'
+                              : isLowStock
+                                ? `⚠️ Only ${stockAvailable} left!`
+                                : `${stockAvailable} in stock`}
                           </span>
                         )}
                         {inCart && (

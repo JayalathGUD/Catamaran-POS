@@ -15,7 +15,7 @@ import { SurfLessons } from './components/SurfLessons'
 import { Settings } from './components/Settings'
 import { Topbar } from './components/Topbar'
 import { getInventoryItems, getOpenBills, getRentals, getSurfboards } from './services/api'
-import { ActiveRental, CompletedRental, NavigationPage, PosCartItem, Surfboard } from './types'
+import { ActiveRental, CompletedRental, InventoryItem, NavigationPage, PosCartItem, Surfboard } from './types'
 
 function App(): React.JSX.Element {
   const [currentPage, setCurrentPage] = useState<NavigationPage>('Dashboard')
@@ -25,6 +25,7 @@ function App(): React.JSX.Element {
   const [activeRentals, setActiveRentals] = useState<ActiveRental[]>([])
   const [completedRentals, setCompletedRentals] = useState<CompletedRental[]>([])
   const [lowStockCount, setLowStockCount] = useState<number>(0)
+  const [lowStockItems, setLowStockItems] = useState<InventoryItem[]>([])
   const [openBillsCount, setOpenBillsCount] = useState<number>(0)
   const [activeOpenBillId, setActiveOpenBillId] = useState<string | null>(null)
   const [externalCartItem, setExternalCartItem] = useState<{
@@ -41,6 +42,17 @@ function App(): React.JSX.Element {
     }
   }
 
+  const refreshInventoryStock = async (): Promise<void> => {
+    try {
+      const invData = await getInventoryItems({ status: 'active' }).catch(() => [])
+      const lowItems = invData.filter((i) => i.currentQuantity <= i.reorderThreshold && !i.isArchived)
+      setLowStockItems(lowItems)
+      setLowStockCount(lowItems.length)
+    } catch {
+      // ignore
+    }
+  }
+
   useEffect(() => {
     let ignore = false
     async function initSharedState(): Promise<void> {
@@ -48,15 +60,16 @@ function App(): React.JSX.Element {
         const [boardsData, rentalsData, invData, openBillsData] = await Promise.all([
           getSurfboards().catch(() => []),
           getRentals().catch(() => ({ active: [], completed: [] })),
-          getInventoryItems().catch(() => []),
+          getInventoryItems({ status: 'active' }).catch(() => []),
           getOpenBills().catch(() => [])
         ])
         if (!ignore) {
           setBoards(boardsData)
           setActiveRentals(rentalsData.active)
           setCompletedRentals(rentalsData.completed)
-          const lowStock = invData.filter((i) => i.currentQuantity <= i.reorderThreshold).length
-          setLowStockCount(lowStock)
+          const lowItems = invData.filter((i) => i.currentQuantity <= i.reorderThreshold && !i.isArchived)
+          setLowStockItems(lowItems)
+          setLowStockCount(lowItems.length)
           setOpenBillsCount(openBillsData.length)
         }
       } catch (err) {
@@ -64,8 +77,17 @@ function App(): React.JSX.Element {
       }
     }
     initSharedState()
+
+    const handleInvUpdated = (): void => {
+      refreshInventoryStock()
+    }
+    window.addEventListener('inventory-updated', handleInvUpdated)
+    const interval = setInterval(refreshInventoryStock, 20000)
+
     return () => {
       ignore = true
+      window.removeEventListener('inventory-updated', handleInvUpdated)
+      clearInterval(interval)
     }
   }, [])
 
@@ -109,7 +131,11 @@ function App(): React.JSX.Element {
       {/* Main App Content Area */}
       <div className="main-layout">
         {/* Top Header Bar with Breadcrumb and System Status indicator */}
-        <Topbar currentPage={currentPage} />
+        <Topbar
+          currentPage={currentPage}
+          lowStockItems={lowStockItems}
+          onNavigate={setCurrentPage}
+        />
 
         {/* Dynamic View Rendering */}
         <main className="content-viewport">
