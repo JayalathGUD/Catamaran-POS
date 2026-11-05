@@ -88,17 +88,24 @@ export const PosBilling: React.FC<PosBillingProps> = ({
 
   // Automatically load external cart item (transferred from Surfboard Rentals or Lessons)
   useEffect(() => {
-    if (externalCartItem) {
+    if (!externalCartItem) return
+
+    const itemToAdd = externalCartItem.item
+    const custName = externalCartItem.customerName
+
+    const timer = setTimeout(() => {
       setCart((prev) => {
-        const alreadyExists = prev.some((c) => c.product.id === externalCartItem.item.product.id)
+        const alreadyExists = prev.some((c) => c.product.id === itemToAdd.product.id)
         if (alreadyExists) return prev
-        return [...prev, externalCartItem.item]
+        return [...prev, itemToAdd]
       })
-      if (externalCartItem.customerName) {
-        setCustomerReference(externalCartItem.customerName)
+      if (custName) {
+        setCustomerReference(custName)
       }
       onClearExternalCartItem?.()
-    }
+    }, 0)
+
+    return () => clearTimeout(timer)
   }, [externalCartItem, onClearExternalCartItem])
   const [discountInput, setDiscountInput] = useState<string>('0')
   const [serviceChargeEnabled, setServiceChargeEnabled] = useState<boolean>(true)
@@ -252,7 +259,7 @@ export const PosBilling: React.FC<PosBillingProps> = ({
     return () => {
       ignore = true
     }
-  }, [activeOpenBillId])
+  }, [activeOpenBillId, inventoryMap])
 
   // Filter Products
   const filteredProducts = useMemo(() => {
