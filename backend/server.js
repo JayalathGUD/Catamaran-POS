@@ -79,7 +79,13 @@ app.get('/api/settings', async (req, res) => {
   try {
     let setting = await Setting.findOne({ key: 'general' });
     if (!setting) {
-      setting = await Setting.create({ key: 'general' });
+      setting = await Setting.create({
+        key: 'general',
+        restaurantWebsite: 'https://www.catamaransurfclubdewata.com'
+      });
+    } else if (!setting.restaurantWebsite) {
+      setting.restaurantWebsite = 'https://www.catamaransurfclubdewata.com';
+      await setting.save();
     }
     res.json(setting);
   } catch (err) {
@@ -96,6 +102,7 @@ app.put('/api/settings', async (req, res) => {
       'restaurantTagline',
       'restaurantPhone',
       'restaurantAddress',
+      'restaurantWebsite',
       'defaultServiceCharge',
       'defaultPaymentMethod',
       'autoPrintReceipt',

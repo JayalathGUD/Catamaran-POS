@@ -110,6 +110,7 @@ export const ProfessionalReceipt: React.FC<ProfessionalReceiptProps> = ({
   const displayTagline = appSettings.restaurantTagline || 'BEACHFRONT DINING · BAR · SURF'
   const displayAddress = appSettings.restaurantAddress || 'Yaddehimulla Road, Unawatuna, Galle'
   const displayHotline = 'TEL: ' + (appSettings.restaurantPhone || '+94 91 224 8890 | +94 77 123 4567')
+  const displayWebsite = appSettings.restaurantWebsite || 'https://www.catamaransurfclubdewata.com'
   const displayCredit = appSettings.softwareCredit || 'Software by Nexion Solution'
 
   const totalQuantity = items.reduce((acc, it) => acc + (Number(it.quantity) || 1), 0)
@@ -525,7 +526,12 @@ export const ProfessionalReceipt: React.FC<ProfessionalReceiptProps> = ({
 
                   <span className="pro-thankyou-msg">THANK YOU FOR DINING WITH US!</span>
                   <span className="pro-vibe">FRESH SEAFOOD &middot; COCKTAILS &middot; GOOD VIBES</span>
-                  <span className="pro-ig">Follow Us on Instagram: @catamaranbeachrestaurant</span>
+                  <span className="pro-ig">Follow Us on Instagram: {appSettings.instagramHandle || '@catamaranbeachrestaurant'}</span>
+                  {displayWebsite && (
+                    <span className="pro-web" style={{ display: 'block', wordBreak: 'break-all', fontSize: '9px', fontWeight: 600 }}>
+                      {displayWebsite}
+                    </span>
+                  )}
                   <span className="pro-visit-again">Please Visit Us Again</span>
 
                   <span className="t-paper-cut">[ - - - - - - - THANK YOU  - - - - - - - ]</span>

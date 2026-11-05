@@ -54,6 +54,7 @@ export async function downloadBillPDF(bill: BillPdfPayload | HistoryBill): Promi
   const tagline = settings.restaurantTagline || 'BEACHFRONT DINING · BAR · SURF'
   const address = settings.restaurantAddress || 'Dewata Beach, Galle, Sri Lanka'
   const phone = settings.restaurantPhone || 'TEL: +94 91 224 8890 | +94 77 123 4567'
+  const website = settings.restaurantWebsite || 'https://www.catamaransurfclubdewata.com'
   const credit = settings.softwareCredit || 'Software by Nexion Solution'
 
   const items = bill.items || []
@@ -205,6 +206,8 @@ export async function downloadBillPDF(bill: BillPdfPayload | HistoryBill): Promi
   doc.text('THANK YOU FOR DINING WITH US!', pageWidth / 2, y, { align: 'center' })
   y += 2.8
   doc.text('FRESH SEAFOOD · COCKTAILS · GOOD VIBES', pageWidth / 2, y, { align: 'center' })
+  y += 2.8
+  doc.text(website, pageWidth / 2, y, { align: 'center' })
   y += 3
   doc.text('[ - - - - - - THANK YOU - - - - - - ]', pageWidth / 2, y, { align: 'center' })
   y += 3.5

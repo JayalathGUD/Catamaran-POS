@@ -241,6 +241,39 @@ export const Settings: React.FC<SettingsProps> = ({ onNavigate }) => {
                   />
                 </div>
               </div>
+
+              <div className="settings-fields-row" style={{ marginTop: '14px' }}>
+                <div className="settings-field-group">
+                  <label htmlFor="restaurant-website-input" className="settings-label">
+                    Official Website URL (බිල්පතේ මුද්‍රණය වන වෙබ් ලිපිනය)
+                  </label>
+                  <input
+                    id="restaurant-website-input"
+                    type="text"
+                    className="settings-text-input"
+                    placeholder="https://www.catamaransurfclubdewata.com"
+                    value={formData.restaurantWebsite ?? ''}
+                    onChange={(e) => handleChange('restaurantWebsite', e.target.value)}
+                  />
+                  <span className="settings-field-tip">
+                    🌐 Prints on the 58mm thermal receipt footer and PDF downloads.
+                  </span>
+                </div>
+
+                <div className="settings-field-group">
+                  <label htmlFor="instagram-handle-input" className="settings-label">
+                    Instagram Handle
+                  </label>
+                  <input
+                    id="instagram-handle-input"
+                    type="text"
+                    className="settings-text-input"
+                    placeholder="@catamaranbeachrestaurant"
+                    value={formData.instagramHandle ?? ''}
+                    onChange={(e) => handleChange('instagramHandle', e.target.value)}
+                  />
+                </div>
+              </div>
             </div>
           </section>
 
@@ -531,7 +564,12 @@ export const Settings: React.FC<SettingsProps> = ({ onNavigate }) => {
                       <div className="pro-item-count">Total Items: 3 &middot; Total Units: 5</div>
                       <span className="pro-thankyou-msg">THANK YOU FOR DINING WITH US!</span>
                       <span className="pro-vibe">FRESH SEAFOOD &middot; COCKTAILS &middot; GOOD VIBES</span>
-                      <span className="pro-ig">Instagram: {formData.instagramHandle}</span>
+                      <span className="pro-ig">Follow Us on Instagram: {formData.instagramHandle || '@catamaranbeachrestaurant'}</span>
+                      {formData.restaurantWebsite && (
+                        <span className="pro-web" style={{ display: 'block', wordBreak: 'break-all', fontSize: '9px', fontWeight: 600 }}>
+                          {formData.restaurantWebsite}
+                        </span>
+                      )}
                       <span className="pro-visit-again">Please Visit Us Again</span>
                       <span className="t-paper-cut">[ - - - - - - - - - THANK YOU - - - - - - - - - ]</span>
 

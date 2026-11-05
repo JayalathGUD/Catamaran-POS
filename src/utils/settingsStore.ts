@@ -8,6 +8,7 @@ export const DEFAULT_SETTINGS: PosSettings = {
   restaurantTagline: 'BEACHFRONT DINING · BAR · SURF',
   restaurantPhone: '+94 91 224 8890 | +94 77 123 4567',
   restaurantAddress: 'DEWATA BEACH, GALLE, SRI LANKA',
+  restaurantWebsite: 'https://www.catamaransurfclubdewata.com',
   defaultServiceCharge: 10,
   defaultPaymentMethod: 'Cash',
   autoPrintReceipt: true,

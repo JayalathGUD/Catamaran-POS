@@ -441,6 +441,7 @@ export interface PosSettings {
   restaurantTagline: string
   restaurantPhone: string
   restaurantAddress: string
+  restaurantWebsite?: string
   defaultServiceCharge: number
   defaultPaymentMethod: 'Cash' | 'Card'
   autoPrintReceipt: boolean
