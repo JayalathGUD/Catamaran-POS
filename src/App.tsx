@@ -139,14 +139,12 @@ function App(): React.JSX.Element {
 
         {/* Dynamic View Rendering */}
         <main className="content-viewport">
-          {currentPage === 'Dashboard' ? (
-            <Dashboard
-              onNavigate={setCurrentPage}
-              boards={boards}
-              activeRentals={activeRentals}
-              completedRentals={completedRentals}
-            />
-          ) : currentPage === 'POS Billing' ? (
+          {/* POS Billing Terminal: Kept mounted in background for instant 0ms tab switching & cart preservation */}
+          <div
+            style={{
+              display: currentPage === 'POS Billing' ? 'contents' : 'none'
+            }}
+          >
             <PosBilling
               onNavigate={setCurrentPage}
               activeOpenBillId={activeOpenBillId}
@@ -155,7 +153,17 @@ function App(): React.JSX.Element {
               externalCartItem={externalCartItem}
               onClearExternalCartItem={() => setExternalCartItem(null)}
             />
-          ) : currentPage === 'Open Bills' ? (
+          </div>
+
+          {currentPage === 'Dashboard' && (
+            <Dashboard
+              onNavigate={setCurrentPage}
+              boards={boards}
+              activeRentals={activeRentals}
+              completedRentals={completedRentals}
+            />
+          )}
+          {currentPage === 'Open Bills' && (
             <OpenBills
               onNavigate={setCurrentPage}
               onSelectBillForAddItems={(billId) => {
@@ -163,13 +171,11 @@ function App(): React.JSX.Element {
                 setCurrentPage('POS Billing')
               }}
             />
-          ) : currentPage === 'Bill History' ? (
-            <BillHistory onNavigate={setCurrentPage} />
-          ) : currentPage === 'Menu Management' ? (
-            <MenuManagement onNavigate={setCurrentPage} />
-          ) : currentPage === 'Inventory' ? (
-            <Inventory onNavigate={setCurrentPage} />
-          ) : currentPage === 'Surfboard Rentals' ? (
+          )}
+          {currentPage === 'Bill History' && <BillHistory onNavigate={setCurrentPage} />}
+          {currentPage === 'Menu Management' && <MenuManagement onNavigate={setCurrentPage} />}
+          {currentPage === 'Inventory' && <Inventory onNavigate={setCurrentPage} />}
+          {currentPage === 'Surfboard Rentals' && (
             <SurfboardRentals
               onNavigate={setCurrentPage}
               boards={boards}
@@ -183,21 +189,11 @@ function App(): React.JSX.Element {
                 setCurrentPage('POS Billing')
               }}
             />
-          ) : currentPage === 'Surf Lessons' ? (
-            <SurfLessons onNavigate={setCurrentPage} />
-          ) : currentPage === 'Expenses' ? (
-            <Expenses />
-          ) : currentPage === 'Reports' ? (
-            <Reports />
-          ) : currentPage === 'Settings' ? (
-            <Settings onNavigate={setCurrentPage} />
-          ) : (
-            <PlaceholderView
-              pageName={currentPage}
-              description={placeholderDescriptions[currentPage]}
-              onReturnToDashboard={() => setCurrentPage('Dashboard')}
-            />
           )}
+          {currentPage === 'Surf Lessons' && <SurfLessons onNavigate={setCurrentPage} />}
+          {currentPage === 'Expenses' && <Expenses />}
+          {currentPage === 'Reports' && <Reports />}
+          {currentPage === 'Settings' && <Settings onNavigate={setCurrentPage} />}
         </main>
       </div>
     </div>

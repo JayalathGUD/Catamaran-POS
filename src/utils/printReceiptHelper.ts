@@ -2,12 +2,12 @@ import html2canvas from 'html2canvas'
 import { jsPDF } from 'jspdf'
 
 /**
- * Print 58mm Thermal Receipt using an isolated iframe.
+ * Print 80mm Thermal Receipt using an isolated iframe.
  *
  * Why an iframe?
  * 1. Bypasses all complex web app layout/overflow/modal constraints.
  * 2. Guaranteed NEVER to produce a blank white page in Chrome print preview.
- * 3. Enforces strictly 58mm thermal roll width and auto-height.
+ * 3. Enforces strictly 80mm thermal roll width (72mm printable content) and auto-height.
  * 4. Works seamlessly with Chrome `--kiosk-printing` for zero-popup instant thermal printing.
  */
 export function printThermalReceipt(elementId: string = 'thermal-print-target'): void {
@@ -55,13 +55,13 @@ export function printThermalReceipt(elementId: string = 'thermal-print-target'):
         ${styleElements}
         <style>
           @page {
-            size: 58mm auto;
+            size: 80mm auto;
             margin: 0mm;
           }
           html, body {
-            width: 58mm !important;
-            max-width: 58mm !important;
-            min-width: 58mm !important;
+            width: 80mm !important;
+            max-width: 80mm !important;
+            min-width: 80mm !important;
             margin: 0 !important;
             padding: 0 !important;
             background: #ffffff !important;
@@ -72,10 +72,10 @@ export function printThermalReceipt(elementId: string = 'thermal-print-target'):
             print-color-adjust: exact !important;
           }
           .thermal-print-wrapper {
-            width: 48mm !important;
-            max-width: 48mm !important;
+            width: 72mm !important;
+            max-width: 72mm !important;
             margin: 0 auto !important;
-            padding: 1.5mm 1mm 8mm 1mm !important;
+            padding: 2mm 1.5mm 10mm 1.5mm !important;
             box-sizing: border-box !important;
             background: #ffffff !important;
             color: #000000 !important;
@@ -85,8 +85,8 @@ export function printThermalReceipt(elementId: string = 'thermal-print-target'):
             color: #000000 !important;
           }
           img {
-            max-width: 36mm !important;
-            max-height: 24mm !important;
+            max-width: 48mm !important;
+            max-height: 28mm !important;
             display: block !important;
             margin: 0 auto !important;
             filter: grayscale(100%) contrast(150%) !important;
@@ -120,7 +120,7 @@ export function printThermalReceipt(elementId: string = 'thermal-print-target'):
 }
 
 /**
- * Download the exact on-screen 58mm Thermal Receipt as a high-resolution 58mm PDF.
+ * Download the exact on-screen 80mm Thermal Receipt as a high-resolution 80mm PDF.
  *
  * Captures #thermal-print-target down to every pixel, character, logo, dashed divider,
  * and software credit so the downloaded file is a 100% EXACT MATCH to the physical roll.
@@ -148,18 +148,18 @@ export async function downloadReceiptAsPDF(
 
     const imgData = canvas.toDataURL('image/png')
 
-    // 58mm paper width in millimeters
-    const pdfWidth = 58
+    // 80mm paper width in millimeters
+    const pdfWidth = 80
     // Calculate proportional height in millimeters
     const pdfHeight = (canvas.height * pdfWidth) / canvas.width
 
     const pdf = new jsPDF({
       orientation: 'portrait',
       unit: 'mm',
-      format: [pdfWidth, Math.max(80, pdfHeight + 4)]
+      format: [pdfWidth, Math.max(100, pdfHeight + 6)]
     })
 
-    pdf.addImage(imgData, 'PNG', 0, 2, pdfWidth, pdfHeight)
+    pdf.addImage(imgData, 'PNG', 0, 3, pdfWidth, pdfHeight)
 
     const cleanFilename = filename.endsWith('.pdf') ? filename : `${filename}.pdf`
     pdf.save(cleanFilename)

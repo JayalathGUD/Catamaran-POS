@@ -717,11 +717,11 @@ export const BillHistory: React.FC<BillHistoryProps> = ({ onNavigate }) => {
                         {/* View Details */}
                         <button
                           type="button"
-                          className="btn-table-action"
+                          className="btn-table-action btn-action-view"
                           onClick={() => setSelectedBill(bill)}
                           title="View complete bill details"
                         >
-                          <IconEye size={13} />
+                          <IconEye size={12} />
                           <span>View</span>
                         </button>
 
@@ -730,9 +730,9 @@ export const BillHistory: React.FC<BillHistoryProps> = ({ onNavigate }) => {
                           type="button"
                           className="btn-table-action btn-action-reprint"
                           onClick={() => setReprintBill(bill)}
-                          title="Reprint receipt on 58mm printer"
+                          title="Reprint receipt on 80mm printer"
                         >
-                          <IconPrinter size={13} />
+                          <IconPrinter size={12} />
                           <span>Reprint</span>
                         </button>
 
@@ -743,7 +743,7 @@ export const BillHistory: React.FC<BillHistoryProps> = ({ onNavigate }) => {
                           onClick={() => handleDownloadBill(bill)}
                           title="Download official PDF invoice"
                         >
-                          <IconDownload size={13} />
+                          <IconDownload size={12} />
                           <span>PDF</span>
                         </button>
 
@@ -759,7 +759,15 @@ export const BillHistory: React.FC<BillHistoryProps> = ({ onNavigate }) => {
                             <span>Refund</span>
                           </button>
                         ) : (
-                          <span className="action-disabled-tag">Archived</span>
+                          <button
+                            type="button"
+                            className="btn-table-action btn-action-disabled"
+                            disabled
+                            title={bill.status === 'Refunded' ? 'Bill is already refunded' : 'Bill cancelled / archived'}
+                          >
+                            <IconRotateCcw size={12} />
+                            <span>{bill.status === 'Refunded' ? 'Refunded' : 'Archived'}</span>
+                          </button>
                         )}
                       </div>
                     </td>
@@ -1073,7 +1081,7 @@ export const BillHistory: React.FC<BillHistoryProps> = ({ onNavigate }) => {
                 }}
               >
                 <IconPrinter size={15} />
-                <span>Reprint 58mm Receipt</span>
+                <span>Reprint 80mm Receipt</span>
               </button>
 
               <button

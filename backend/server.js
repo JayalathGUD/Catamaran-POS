@@ -128,13 +128,31 @@ app.put('/api/settings', async (req, res) => {
 });
 
 // ============================================================
-// MENU MANAGEMENT API
+// MENU MANAGEMENT API (Optimized with In-Memory Cache & Concurrent Atlas Queries)
 // ============================================================
+let cachedMenuResponse = null;
+let cachedMenuTime = 0;
+const MENU_CACHE_TTL = 15000; // 15 seconds high-speed cache
+
+function invalidateMenuCache() {
+  cachedMenuResponse = null;
+  cachedMenuTime = 0;
+}
+
 // Get all menu items
 app.get('/api/menu', async (req, res) => {
   try {
-    const items = await MenuItem.find().sort({ name: 1 }).lean();
-    const inventoryItems = await InventoryItem.find({ isArchived: { $ne: true } }).lean();
+    // Return cached response instantly if fresh (< 15 seconds old)
+    if (cachedMenuResponse && (Date.now() - cachedMenuTime < MENU_CACHE_TTL)) {
+      return res.json(cachedMenuResponse);
+    }
+
+    // Query MenuItem and InventoryItem concurrently in parallel to cut Atlas latency in half
+    const [items, inventoryItems] = await Promise.all([
+      MenuItem.find().sort({ name: 1 }).lean(),
+      InventoryItem.find({ isArchived: { $ne: true } }).lean()
+    ]);
+
     const invMapByCode = new Map();
     const invMapById = new Map();
     inventoryItems.forEach((inv) => {
@@ -163,6 +181,10 @@ app.get('/api/menu', async (req, res) => {
       };
     });
 
+    // Save to high-speed in-memory cache
+    cachedMenuResponse = enriched;
+    cachedMenuTime = Date.now();
+
     res.json(enriched);
   } catch (error) {
     console.error('Menu query error:', error.message);
@@ -180,6 +202,7 @@ app.get('/api/menu/:id', async (req, res) => {
     if (!item) {
       return res.status(404).json({ message: 'Menu item not found' });
     }
+    invalidateMenuCache();
     res.json(item);
   } catch (error) {
     console.error('Menu item query error:', error.message);
@@ -307,6 +330,7 @@ app.post('/api/menu', async (req, res) => {
       await item.save();
     }
 
+    invalidateMenuCache();
     res.status(201).json(item);
   } catch (error) {
     if (error.name === 'ValidationError') {
@@ -433,6 +457,7 @@ app.put('/api/menu/:id', async (req, res) => {
       }
     );
 
+    invalidateMenuCache();
     res.json(item);
   } catch (error) {
     if (error.name === 'ValidationError') {
@@ -468,6 +493,7 @@ app.patch('/api/menu/:id/status', async (req, res) => {
       return res.status(404).json({ message: 'Menu item not found' });
     }
 
+    invalidateMenuCache();
     res.json(item);
   } catch (error) {
     console.error('Menu status update error:', error.message);
@@ -2228,6 +2254,7 @@ app.post('/api/inventory', async (req, res) => {
       isArchived: false
     });
 
+    invalidateMenuCache();
     res.status(201).json(item);
   } catch (error) {
     if (error.code === 11000) {
@@ -2254,6 +2281,7 @@ app.put('/api/inventory/:id', async (req, res) => {
       return res.status(404).json({ message: 'Inventory item not found' });
     }
 
+    invalidateMenuCache();
     res.json(item);
   } catch (error) {
     console.error('Inventory update error:', error.message);
@@ -2288,6 +2316,7 @@ app.patch('/api/inventory/:id/status', async (req, res) => {
       return res.status(404).json({ message: 'Inventory item not found' });
     }
 
+    invalidateMenuCache();
     res.json(item);
   } catch (error) {
     console.error('Inventory status update error:', error.message);

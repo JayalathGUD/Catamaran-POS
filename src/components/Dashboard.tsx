@@ -267,7 +267,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         status: bill.status
       })
     }
-    showToast(`Downloaded official 58mm receipt for ${bill.billNumber}`)
+    showToast(`Downloaded official 80mm receipt for ${bill.billNumber}`)
   }
 
   // Recent Bills from MongoDB
@@ -1189,7 +1189,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 }}
               >
                 <IconPrinter size={16} />
-                <span>Print 58mm Receipt</span>
+                <span>Print 80mm Receipt</span>
               </button>
 
               <button

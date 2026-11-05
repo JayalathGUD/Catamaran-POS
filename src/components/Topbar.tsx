@@ -39,6 +39,23 @@ export const Topbar: React.FC<TopbarProps> = ({ currentPage, lowStockItems = [],
 
   const lowStockCount = lowStockItems.length
 
+  const [updateInfo, setUpdateInfo] = useState<{
+    status: string
+    text: string
+    version?: string
+    percent?: number
+  } | null>(null)
+
+  useEffect(() => {
+    if (!window.electronAPI?.onUpdateMessage) return
+    const unsubscribe = window.electronAPI.onUpdateMessage((msg) => {
+      setUpdateInfo(msg)
+    })
+    return () => {
+      unsubscribe?.()
+    }
+  }, [])
+
   return (
     <header className="app-topbar">
       <div className="topbar-left">
@@ -50,6 +67,53 @@ export const Topbar: React.FC<TopbarProps> = ({ currentPage, lowStockItems = [],
       </div>
 
       <div className="topbar-right">
+        {/* Electron Auto-Update Indicators */}
+        {updateInfo && updateInfo.status === 'downloading' && (
+          <div
+            className="topbar-update-banner"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '4px 10px',
+              borderRadius: '20px',
+              backgroundColor: '#eff6ff',
+              border: '1px solid #bfdbfe',
+              color: '#1d4ed8',
+              fontSize: '11px',
+              fontWeight: 600
+            }}
+          >
+            <span className="demo-badge-dot" style={{ backgroundColor: '#3b82f6' }} />
+            <span>Downloading Update: {updateInfo.percent ?? 0}%</span>
+          </div>
+        )}
+
+        {updateInfo && updateInfo.status === 'downloaded' && (
+          <button
+            type="button"
+            className="topbar-update-btn"
+            onClick={() => window.electronAPI?.restartAndInstallUpdate()}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '5px 13px',
+              borderRadius: '20px',
+              backgroundColor: '#059669',
+              border: '1px solid #047857',
+              color: '#ffffff',
+              fontSize: '11px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              boxShadow: '0 2px 8px rgba(5, 150, 105, 0.4)'
+            }}
+            title="Click to restart and install update"
+          >
+            <span>🚀 Update Ready! Restart Now</span>
+          </button>
+        )}
+
         {/* Live System Status Badge */}
         <div
           className="demo-badge-indicator"

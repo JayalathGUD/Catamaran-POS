@@ -51,6 +51,44 @@ interface PosBillingProps {
   onClearExternalCartItem?: () => void
 }
 
+// Global in-memory cache to guarantee instant 0ms load across tab navigation
+let posMemoryProductsCache: PosProduct[] | null = null
+let posMemoryInvMapCache: Map<string, number> | null = null
+let posMemoryInvDetailsCache: Map<string, { currentQuantity: number; reorderThreshold: number }> | null = null
+
+function getInitialProducts(): PosProduct[] {
+  if (posMemoryProductsCache && posMemoryProductsCache.length > 0) {
+    return posMemoryProductsCache
+  }
+  try {
+    const raw = localStorage.getItem('catamaran_cached_menu_products')
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        posMemoryProductsCache = parsed
+        return parsed
+      }
+    }
+  } catch (e) {
+    console.warn('Failed reading product cache from localStorage', e)
+  }
+  return []
+}
+
+function getInitialInvMap(): Map<string, number> {
+  if (posMemoryInvMapCache) return posMemoryInvMapCache
+  try {
+    const raw = localStorage.getItem('catamaran_cached_inv_map')
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      const map = new Map<string, number>(Object.entries(parsed))
+      posMemoryInvMapCache = map
+      return map
+    }
+  } catch {}
+  return new Map()
+}
+
 export const PosBilling: React.FC<PosBillingProps> = ({
   onNavigate,
   activeOpenBillId,
@@ -60,14 +98,17 @@ export const PosBilling: React.FC<PosBillingProps> = ({
   onClearExternalCartItem
 }) => {
   const { settings } = usePosSettings()
-  // Live Products from MongoDB Atlas
-  const [products, setProducts] = useState<PosProduct[]>([])
-  const [inventoryMap, setInventoryMap] = useState<Map<string, number>>(new Map())
+  // Live Products from MongoDB Atlas with instant cached initialization
+  const [products, setProducts] = useState<PosProduct[]>(getInitialProducts)
+  const [inventoryMap, setInventoryMap] = useState<Map<string, number>>(getInitialInvMap)
   const [inventoryDetailsMap, setInventoryDetailsMap] = useState<
     Map<string, { currentQuantity: number; reorderThreshold: number }>
-  >(new Map())
+  >(() => posMemoryInvDetailsCache ?? new Map())
   const [dismissedLowStockAlert, setDismissedLowStockAlert] = useState<boolean>(false)
-  const [isLoadingProducts, setIsLoadingProducts] = useState<boolean>(true)
+  // Only show blocking spinner if there are NO cached products at all
+  const [isLoadingProducts, setIsLoadingProducts] = useState<boolean>(() => {
+    return getInitialProducts().length === 0
+  })
   const [productError, setProductError] = useState<string | null>(null)
 
   // Active Open Bill Tab Context
@@ -153,8 +194,10 @@ export const PosBilling: React.FC<PosBillingProps> = ({
   }
 
   // Load menu items and live inventory stock from backend API
-  const loadLiveMenu = useCallback(async (): Promise<void> => {
-    setIsLoadingProducts(true)
+  const loadLiveMenu = useCallback(async (isSilent = false): Promise<void> => {
+    if (!isSilent && products.length === 0) {
+      setIsLoadingProducts(true)
+    }
     setProductError(null)
     try {
       const [items, invItems] = await Promise.all([
@@ -164,6 +207,7 @@ export const PosBilling: React.FC<PosBillingProps> = ({
       // Only show active items on POS
       const activeItems = items.filter((item) => item.isActive !== false)
       setProducts(activeItems)
+      posMemoryProductsCache = activeItems
 
       const invMap = new Map<string, number>()
       const invDetails = new Map<string, { currentQuantity: number; reorderThreshold: number }>()
@@ -179,6 +223,17 @@ export const PosBilling: React.FC<PosBillingProps> = ({
       })
       setInventoryMap(invMap)
       setInventoryDetailsMap(invDetails)
+      posMemoryInvMapCache = invMap
+      posMemoryInvDetailsCache = invDetails
+
+      try {
+        localStorage.setItem('catamaran_cached_menu_products', JSON.stringify(activeItems))
+        const obj: Record<string, number> = {}
+        invMap.forEach((v, k) => {
+          obj[k] = v
+        })
+        localStorage.setItem('catamaran_cached_inv_map', JSON.stringify(obj))
+      } catch {}
     } catch (err: unknown) {
       console.error('Failed to load menu in POS:', err)
       const msg = err instanceof Error ? err.message : 'Could not load menu items'
@@ -187,7 +242,7 @@ export const PosBilling: React.FC<PosBillingProps> = ({
     } finally {
       setIsLoadingProducts(false)
     }
-  }, [])
+  }, [products.length])
 
   useEffect(() => {
     let ignore = false
@@ -202,6 +257,7 @@ export const PosBilling: React.FC<PosBillingProps> = ({
         if (!ignore) {
           const activeItems = items.filter((item) => item.isActive !== false)
           setProducts(activeItems)
+          posMemoryProductsCache = activeItems
 
           const invMap = new Map<string, number>()
           const invDetails = new Map<string, { currentQuantity: number; reorderThreshold: number }>()
@@ -217,7 +273,18 @@ export const PosBilling: React.FC<PosBillingProps> = ({
           })
           setInventoryMap(invMap)
           setInventoryDetailsMap(invDetails)
+          posMemoryInvMapCache = invMap
+          posMemoryInvDetailsCache = invDetails
           setOpenBillsCount(openBills.length)
+
+          try {
+            localStorage.setItem('catamaran_cached_menu_products', JSON.stringify(activeItems))
+            const obj: Record<string, number> = {}
+            invMap.forEach((v, k) => {
+              obj[k] = v
+            })
+            localStorage.setItem('catamaran_cached_inv_map', JSON.stringify(obj))
+          } catch {}
         }
       } catch (err: unknown) {
         if (!ignore) {
@@ -236,7 +303,7 @@ export const PosBilling: React.FC<PosBillingProps> = ({
     initLoad()
 
     const handleInvUpdated = (): void => {
-      loadLiveMenu().catch(() => {})
+      loadLiveMenu(true).catch(() => {})
     }
     window.addEventListener('inventory-updated', handleInvUpdated)
 
@@ -549,7 +616,7 @@ export const PosBilling: React.FC<PosBillingProps> = ({
         `Order sent to Kitchen! Bill #${saved.billNumber} (${holdCustomerInput.trim() || 'Guest'})`
       )
 
-      // Auto-open 58mm Kitchen Ticket (KOT) for thermal printout
+      // Auto-open 80mm Kitchen Ticket (KOT) for thermal printout
       setSettledBillData({
         billNumber: saved.billNumber,
         date: saved.date,
@@ -1248,7 +1315,7 @@ export const PosBilling: React.FC<PosBillingProps> = ({
                   <button
                     type="button"
                     className="btn-action btn-action-primary"
-                    onClick={loadLiveMenu}
+                    onClick={() => loadLiveMenu()}
                     style={{ marginTop: '14px' }}
                   >
                     <IconRotateCcw size={14} />
@@ -1982,7 +2049,7 @@ export const PosBilling: React.FC<PosBillingProps> = ({
                                 Send Order to Kitchen (Hold Tab)
                               </div>
                               <div style={{ fontSize: '10.5px', opacity: 0.9, fontWeight: 500 }}>
-                                Prints 58mm KOT now · Customer pays upon leaving
+                                Prints 80mm KOT now · Customer pays upon leaving
                               </div>
                             </div>
                           </div>
@@ -2085,7 +2152,7 @@ export const PosBilling: React.FC<PosBillingProps> = ({
               {/* Status bar */}
               <div className="pro-status-footer">
                 <div className="pro-status-dot" />
-                <span>Cashier: {settings.cashierName || 'Kasun P.'} · 58mm Thermal Printer Ready</span>
+                <span>Cashier: {settings.cashierName || 'Kasun P.'} · 80mm Thermal Printer Ready</span>
               </div>
             </div>
           </div>
@@ -2154,7 +2221,7 @@ export const PosBilling: React.FC<PosBillingProps> = ({
                 </div>
                 <div>
                   <h3 className="ref-modal-title">Send Order to Kitchen (Open Tab)</h3>
-                  <span className="ref-modal-sub">Prints 58mm KOT immediately · Guest pays when leaving</span>
+                  <span className="ref-modal-sub">Prints 80mm KOT immediately · Guest pays when leaving</span>
                 </div>
               </div>
               <button
@@ -2169,7 +2236,7 @@ export const PosBilling: React.FC<PosBillingProps> = ({
 
             <div className="pos-ref-dialog-body">
               <div style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: '1.45' }}>
-                Select a table or enter guest name. This saves the tab, keeps it active in MongoDB, and <strong>immediately displays the 58mm Kitchen Ticket (KOT)</strong> ready to print for the kitchen!
+                Select a table or enter guest name. This saves the tab, keeps it active in MongoDB, and <strong>immediately displays the 80mm Kitchen Ticket (KOT)</strong> ready to print for the kitchen!
               </div>
 
               {/* Fast Table preset chips */}

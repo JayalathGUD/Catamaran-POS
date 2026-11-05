@@ -31,9 +31,9 @@ export interface BillPdfPayload {
 }
 
 /**
- * Downloads a 58mm thermal receipt PDF matching the printed paper receipt.
+ * Downloads an 80mm thermal receipt PDF matching the printed paper receipt.
  * If the preview is already mounted on the screen, captures #thermal-print-target via canvas.
- * Otherwise, generates an authentic 58mm monospace thermal roll document.
+ * Otherwise, generates an authentic 80mm monospace thermal roll document.
  */
 export async function downloadBillPDF(bill: BillPdfPayload | HistoryBill): Promise<void> {
   // If preview DOM element is currently present, capture it directly for 100% pixel-perfect replica
@@ -48,7 +48,7 @@ export async function downloadBillPDF(bill: BillPdfPayload | HistoryBill): Promi
     }
   }
 
-  // Pure 58mm thermal roll fallback
+  // Pure 80mm thermal roll fallback
   const settings = getLocalSettings()
   const restaurantName = settings.restaurantName || 'CATAMARAN BEACH RESTAURANT'
   const tagline = settings.restaurantTagline || 'BEACHFRONT DINING · BAR · SURF'
@@ -58,19 +58,19 @@ export async function downloadBillPDF(bill: BillPdfPayload | HistoryBill): Promi
   const credit = settings.softwareCredit || 'Software by Nexion Solution'
 
   const items = bill.items || []
-  const estimatedHeight = Math.max(120, 100 + items.length * 6.5)
+  const estimatedHeight = Math.max(130, 110 + items.length * 6.5)
 
-  // 58mm paper width in mm
+  // 80mm paper width in mm
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
-    format: [58, estimatedHeight]
+    format: [80, estimatedHeight]
   })
 
-  const pageWidth = 58
-  const marginLeft = 3
-  const marginRight = 55
-  let y = 7
+  const pageWidth = 80
+  const marginLeft = 4
+  const marginRight = 76
+  let y = 8
 
   // 1. Restaurant Header
   doc.setFont('courier', 'bold')

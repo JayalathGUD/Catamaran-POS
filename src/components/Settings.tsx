@@ -84,7 +84,7 @@ export const Settings: React.FC<SettingsProps> = ({ onNavigate }) => {
             </div>
             <h1 className="settings-title">System &amp; POS Settings</h1>
             <p className="settings-subtitle">
-              Manage the active Cashier Name, receipt branding, 58mm thermal printer parameters, and business metadata.
+              Manage the active Cashier Name, receipt branding, 80mm thermal printer parameters, and business metadata.
             </p>
           </div>
         </div>
@@ -111,7 +111,7 @@ export const Settings: React.FC<SettingsProps> = ({ onNavigate }) => {
         </div>
       </div>
 
-      {/* Main Grid: Form on Left (60%), Live 58mm Thermal Preview on Right (40%) */}
+      {/* Main Grid: Form on Left (60%), Live 80mm Thermal Preview on Right (40%) */}
       <div className="settings-layout-grid">
         {/* ========================================================
            LEFT: Configuration Sections
@@ -151,7 +151,7 @@ export const Settings: React.FC<SettingsProps> = ({ onNavigate }) => {
                   />
                 </div>
                 <span className="settings-field-tip">
-                  💡 This name prints under <strong>SERVER / CASHIER</strong> on 58mm thermal receipts and kitchen tickets.
+                  💡 This name prints under <strong>SERVER / CASHIER</strong> on 80mm thermal receipts and kitchen tickets.
                 </span>
 
                 {/* Quick Presets */}
@@ -183,7 +183,7 @@ export const Settings: React.FC<SettingsProps> = ({ onNavigate }) => {
               <div>
                 <h2 className="card-title">Restaurant Receipt Header &amp; Branding</h2>
                 <p className="card-desc">
-                  Customize the business branding printed at the top of 58mm thermal paper rolls.
+                  Customize the business branding printed at the top of 80mm thermal paper rolls.
                 </p>
               </div>
             </div>
@@ -259,7 +259,7 @@ export const Settings: React.FC<SettingsProps> = ({ onNavigate }) => {
                     onChange={(e) => handleChange('restaurantWebsite', e.target.value)}
                   />
                   <span className="settings-field-tip">
-                    🌐 Prints on the 58mm thermal receipt footer and PDF downloads.
+                    🌐 Prints on the 80mm thermal receipt footer and PDF downloads.
                   </span>
                 </div>
 
@@ -280,7 +280,7 @@ export const Settings: React.FC<SettingsProps> = ({ onNavigate }) => {
             </div>
           </section>
 
-          {/* Section 3: 58mm Thermal Printer Defaults & Footer Credits */}
+          {/* Section 3: 80mm Thermal Printer Defaults & Footer Credits */}
           <section className="settings-card">
             <div className="settings-card-header">
               <div className="card-header-icon printer-icon-box">
@@ -337,7 +337,7 @@ export const Settings: React.FC<SettingsProps> = ({ onNavigate }) => {
                   />
                   <span className="checkbox-custom" />
                   <span className="checkbox-label-text">
-                    <strong>Auto-trigger 58mm Print Dialog upon Bill Settlement</strong>
+                    <strong>Auto-trigger 80mm Print Dialog upon Bill Settlement</strong>
                     <small>When enabled, clicking "Settle &amp; Print Bill" pops open the printer prompt immediately.</small>
                   </span>
                 </label>
@@ -383,13 +383,13 @@ export const Settings: React.FC<SettingsProps> = ({ onNavigate }) => {
         </div>
 
         {/* ========================================================
-           RIGHT: Live 58mm Thermal Preview
+           RIGHT: Live 80mm Thermal Preview
            ======================================================== */}
         <div className="settings-preview-col">
           <div className="settings-preview-sticky">
             <div className="preview-card-header">
               <span className="preview-kicker">Live Real-Time Simulation</span>
-              <h3 className="preview-title">58mm Thermal Receipt Preview</h3>
+              <h3 className="preview-title">80mm Thermal Receipt Preview</h3>
               <p className="preview-sub">
                 Notice how changing the cashier name on the left updates the receipt below instantaneously:
               </p>
@@ -413,15 +413,16 @@ export const Settings: React.FC<SettingsProps> = ({ onNavigate }) => {
               </div>
             </div>
 
-            {/* Simulated 58mm Paper */}
+            {/* Simulated 80mm Paper */}
             <div
               className="preview-paper-container"
               style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}
             >
               <div
-                className="thermal-paper-58mm pro-receipt-paper"
+                className="thermal-paper-80mm pro-receipt-paper"
                 style={{
-                  width: '280px',
+                  width: '380px',
+                  maxWidth: '100%',
                   margin: '0 auto',
                   backgroundColor: '#ffffff',
                   height: 'auto',

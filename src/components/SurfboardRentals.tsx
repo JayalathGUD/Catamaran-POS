@@ -981,7 +981,7 @@ export const SurfboardRentals: React.FC<SurfboardRentalsProps> = ({
     if (!receiptModalRental) return
     window.print()
     showToast(
-      `58mm rental receipt format sent to printer (${receiptModalRental.receiptNumber})`
+      `80mm rental receipt format sent to printer (${receiptModalRental.receiptNumber})`
     )
   }
 
@@ -1018,7 +1018,7 @@ export const SurfboardRentals: React.FC<SurfboardRentalsProps> = ({
           </div>
           <h1 className="rentals-heading">Surfboard Rentals</h1>
           <p className="rentals-subheading">
-            Live fleet availability, customer checkout records, hourly rate calculator &amp; 58mm
+            Live fleet availability, customer checkout records, hourly rate calculator &amp; 80mm
             rental receipts.
           </p>
         </div>
@@ -1927,7 +1927,7 @@ export const SurfboardRentals: React.FC<SurfboardRentalsProps> = ({
                               type="button"
                               className="btn-table-action"
                               onClick={() => handleOpenReceiptPreview(record, false)}
-                              title="Preview 58mm thermal receipt"
+                              title="Preview 80mm thermal receipt"
                             >
                               <IconEye size={13} />
                               <span>Preview</span>
@@ -1938,7 +1938,7 @@ export const SurfboardRentals: React.FC<SurfboardRentalsProps> = ({
                               type="button"
                               className="btn-table-action btn-action-reprint"
                               onClick={() => handleOpenReceiptPreview(record, true)}
-                              title="Reprint 58mm customer receipt"
+                              title="Reprint 80mm customer receipt"
                             >
                               <IconPrinter size={13} />
                               <span>Reprint</span>
@@ -3027,7 +3027,7 @@ export const SurfboardRentals: React.FC<SurfboardRentalsProps> = ({
                   {isReprintMode ? 'Reprint Receipt Preview' : 'Rental Receipt Preview'}
                 </span>
                 <h3 id="receipt-modal-title" className="thermal-title">
-                  Epson TM-T81III (58 mm)
+                  Epson TM-T81III / Standard (80 mm)
                 </h3>
               </div>
               <button
@@ -3221,7 +3221,7 @@ export const SurfboardRentals: React.FC<SurfboardRentalsProps> = ({
                 type="button"
                 className="btn-print-58mm"
                 onClick={handlePrintReceipt}
-                title="Print 58mm receipt to Epson TM-T81III"
+                title="Print 80mm receipt to Epson TM-T81III"
               >
                 <IconPrinter size={16} />
                 <span>Print Receipt (Epson TM-T81III)</span>

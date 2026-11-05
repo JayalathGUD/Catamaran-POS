@@ -448,3 +448,30 @@ export interface PosSettings {
   instagramHandle: string
   softwareCredit: string
 }
+
+export interface ElectronUpdateMessage {
+  status: 'checking' | 'available' | 'up-to-date' | 'downloading' | 'downloaded' | 'error' | 'dev'
+  text: string
+  version?: string
+  percent?: number
+}
+
+export interface ElectronAPI {
+  isElectron: boolean
+  getPrinters: () => Promise<Array<{ name: string; displayName?: string; isDefault?: boolean }>>
+  printThermal: (options?: { silent?: boolean; deviceName?: string }) => Promise<{ success: boolean; error?: string }>
+  minimize: () => void
+  maximize: () => void
+  close: () => void
+  openExternal: (url: string) => Promise<boolean>
+  checkForUpdates: () => Promise<{ status: string; text?: string; version?: string }>
+  restartAndInstallUpdate: () => Promise<void>
+  onUpdateMessage: (callback: (msg: ElectronUpdateMessage) => void) => () => void
+}
+
+declare global {
+  interface Window {
+    electronAPI?: ElectronAPI
+  }
+}
+

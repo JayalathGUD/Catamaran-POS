@@ -186,8 +186,8 @@ export const ProfessionalReceipt: React.FC<ProfessionalReceiptProps> = ({
               {isReprint
                 ? 'Duplicate Guest Check'
                 : receiptView === 'kitchen'
-                  ? 'Kitchen Order Ticket · 58mm Thermal'
-                  : 'Official Bill · 58mm Thermal Ready'}
+                  ? 'Kitchen Order Ticket · 80mm Thermal'
+                  : 'Official Bill · 80mm Thermal Ready'}
             </span>
             <h3 id="receipt-modal-title" className="thermal-title">
               {receiptView === 'kitchen' ? 'Kitchen Order Ticket (KOT)' : 'Catamaran Beach Restaurant'}
@@ -228,7 +228,7 @@ export const ProfessionalReceipt: React.FC<ProfessionalReceiptProps> = ({
         >
           {/* Print Target (This container alone is printed when window.print() is called) */}
           <div
-            className="thermal-paper-58mm pro-receipt-paper"
+            className="thermal-paper-80mm thermal-paper-58mm pro-receipt-paper"
             id="thermal-print-target"
             style={{
               backgroundColor: '#ffffff',
@@ -548,15 +548,15 @@ export const ProfessionalReceipt: React.FC<ProfessionalReceiptProps> = ({
 
         {/* Modal Controls (Clean, Spacious 2-Tier Layout) */}
         <div className="thermal-modal-actions pro-receipt-actions">
-          {/* Row 1: Big Prominent 58mm Print Button */}
+          {/* Row 1: Big Prominent 80mm Print Button */}
           <button
             type="button"
             className="pro-receipt-primary-print"
             onClick={handlePrint}
-            title="Open 58mm printer dialog (Ctrl+P)"
+            title="Open 80mm printer dialog (Ctrl+P)"
           >
             <IconPrinter size={18} />
-            <span>Print {receiptView === 'customer' ? 'Customer Bill' : 'Kitchen KOT'} (58mm)</span>
+            <span>Print {receiptView === 'customer' ? 'Customer Bill' : 'Kitchen KOT'} (80mm)</span>
           </button>
 
           {/* Row 2: Secondary Action Bar */}

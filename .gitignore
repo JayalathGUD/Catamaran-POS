@@ -18,3 +18,8 @@ Catamaran-Backups/
 # Local backups and database exports
 backups/
 backend/.env
+
+# Electron release builds
+release/
+*.exe
+dist-electron/
