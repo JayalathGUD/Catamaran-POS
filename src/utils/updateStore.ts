@@ -76,7 +76,7 @@ export async function checkForSoftwareUpdates(simulate = false, simVersion = '1.
   try {
     const url = simulate
       ? `http://127.0.0.1:5000/api/system/check-update?simulate=true&version=${encodeURIComponent(simVersion)}`
-      : 'http://127.0.0.1:5000/api/system/check-update'
+      : `http://127.0.0.1:5000/api/system/check-update?currentVersion=${encodeURIComponent(currentState.currentVersion)}`
 
     const res = await fetch(url)
     if (!res.ok) {

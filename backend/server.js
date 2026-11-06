@@ -97,7 +97,7 @@ app.get('/api/system/version', (req, res) => {
 });
 
 app.get('/api/system/check-update', (req, res) => {
-  const currentVersion = '1.0.1';
+  const currentVersion = req.query.currentVersion || req.query.version || '1.0.1';
   const isSimulated = req.query.simulate === 'true';
 
   if (isSimulated) {
