@@ -90,14 +90,14 @@ function compareVersions(current, latest) {
 app.get('/api/system/version', (req, res) => {
   res.json({
     name: 'Catamaran POS',
-    version: '1.0.0',
+    version: '1.0.1',
     repository: 'JayalathGUD/Catamaran-POS',
     releasesUrl: 'https://github.com/JayalathGUD/Catamaran-POS/releases'
   });
 });
 
 app.get('/api/system/check-update', (req, res) => {
-  const currentVersion = '1.0.0';
+  const currentVersion = '1.0.1';
   const isSimulated = req.query.simulate === 'true';
 
   if (isSimulated) {

@@ -14,7 +14,7 @@ export interface SoftwareUpdateState {
   lastChecked: string | null
 }
 
-const DEFAULT_CURRENT_VERSION = '1.0.0'
+const DEFAULT_CURRENT_VERSION = '1.0.1'
 
 let currentState: SoftwareUpdateState = {
   status: 'idle',
