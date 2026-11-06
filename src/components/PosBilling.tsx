@@ -162,6 +162,8 @@ export const PosBilling: React.FC<PosBillingProps> = ({
   const [splitCardInput, setSplitCardInput] = useState<string>('')
   const [splitCashGiven, setSplitCashGiven] = useState<string>('')
   const [validationError, setValidationError] = useState<string | null>(null)
+  const [customRentalModalItem, setCustomRentalModalItem] = useState<PosCartItem | null>(null)
+  const [customRentalPriceInput, setCustomRentalPriceInput] = useState<string>('')
   const [showReceiptModal, setShowReceiptModal] = useState<boolean>(false)
   const [receiptModalInitialView, setReceiptModalInitialView] = useState<'customer' | 'kitchen'>('customer')
   const [completedBillNumber, setCompletedBillNumber] = useState<string>('')
@@ -810,6 +812,127 @@ export const PosBilling: React.FC<PosBillingProps> = ({
     } finally {
       setIsCancellingBill(false)
     }
+  }
+
+  const handleOpenCustomRentalPrice = (item: PosCartItem) => {
+    setCustomRentalModalItem(item)
+    setCustomRentalPriceInput(String(item.product.price))
+  }
+
+  const handleApplyCustomRentalPrice = async (priceOverride?: number) => {
+    if (!customRentalModalItem) return
+    const finalPrice = priceOverride !== undefined ? priceOverride : parseFloat(customRentalPriceInput)
+    if (isNaN(finalPrice) || finalPrice < 0) {
+      showToast('Please enter a valid price amount')
+      return
+    }
+
+    const updatedCart = cart.map((it) => {
+      if (it.id === customRentalModalItem.id) {
+        return {
+          ...it,
+          product: {
+            ...it.product,
+            price: finalPrice,
+            isCustomPrice: true,
+            customPrice: finalPrice
+          },
+          isCustomPrice: true,
+          customPrice: finalPrice
+        }
+      }
+      return it
+    })
+
+    setCart(updatedCart)
+    setCustomRentalModalItem(null)
+    showToast(`Updated surfboard rental rate to ${formatLKR(finalPrice)} (Custom Price)`)
+
+    // If there is an active bill open, sync immediately to MongoDB
+    if (activeBill) {
+      try {
+        const updated = await updateOpenBillItems(activeBill.id, {
+          items: updatedCart.map((i) => ({
+            name: i.product.name,
+            quantity: i.quantity,
+            unitPrice: i.product.price,
+            total: i.product.price * i.quantity,
+            code: i.product.code,
+            duration: i.product.duration,
+            startTime: i.product.startTime,
+            endTime: i.product.endTime,
+            isCustomPrice: i.product.isCustomPrice,
+            customPrice: i.product.customPrice
+          })),
+          customerName: customerReference.trim(),
+          discount: effectiveDiscount,
+          serviceCharge: serviceChargeAmount,
+          cashier: settings.cashierName || 'Kasun P.'
+        })
+        setActiveBill(updated)
+      } catch (err) {
+        console.warn('Sync custom price error:', err)
+      }
+    }
+  }
+
+  const handleResetCustomRentalPrice = async () => {
+    if (!customRentalModalItem) return
+    if (activeBill) {
+      try {
+        const b = await getBillById(activeBill.id)
+        if (b && b.items) {
+          const mappedCart: PosCartItem[] = b.items.map((it, idx) => ({
+            id: `cart-active-${idx}-${it.id || Date.now()}`,
+            product: {
+              id: `prod-active-${idx}`,
+              name: it.name,
+              category: it.code === 'LESSON' ? 'Surf Lessons' : it.code === 'RENTAL' ? 'Other Services' : 'Food',
+              price: it.unitPrice,
+              code: it.code || '',
+              stockTracking: Boolean(it.code && inventoryMap.has(it.code.toUpperCase())),
+              duration: it.duration,
+              startTime: it.startTime,
+              endTime: it.endTime,
+              isCustomPrice: false,
+              customPrice: undefined
+            },
+            quantity: it.quantity,
+            duration: it.duration,
+            startTime: it.startTime,
+            endTime: it.endTime,
+            isCustomPrice: false,
+            customPrice: undefined
+          }))
+          setCart(mappedCart)
+          setActiveBill(b)
+          setCustomRentalModalItem(null)
+          showToast('Reset rental rate to live time calculation')
+          return
+        }
+      } catch (err) {
+        console.warn('Reset error:', err)
+      }
+    }
+
+    const updatedCart = cart.map((it) => {
+      if (it.id === customRentalModalItem.id) {
+        return {
+          ...it,
+          product: {
+            ...it.product,
+            isCustomPrice: false,
+            customPrice: undefined
+          },
+          isCustomPrice: false,
+          customPrice: undefined
+        }
+      }
+      return it
+    })
+    setCart(updatedCart)
+    setCustomRentalModalItem(null)
+    showToast('Reset rental rate to live time calculation')
   }
 
   const handleCompleteBill = async (): Promise<void> => {
@@ -2197,6 +2320,143 @@ export const PosBilling: React.FC<PosBillingProps> = ({
           </div>
         </aside>
       </div>
+
+      {/* Modal: Customize Surfboard Rental Price before Billing */}
+      {customRentalModalItem && (
+        <div className="pos-modal-backdrop" onClick={() => setCustomRentalModalItem(null)}>
+          <div className="pos-ref-dialog-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '440px' }}>
+            <div className="pos-ref-dialog-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div className="pay-icon-circle" style={{ width: '38px', height: '38px', background: '#e0f2fe', color: '#0369a1' }}>
+                  <span style={{ fontSize: '18px' }}>🏄</span>
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 800 }}>Customize Rental Price</h3>
+                  <span style={{ fontSize: '12px', color: '#64748b' }}>
+                    Adjust rental charge for calculated elapsed time
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCustomRentalModalItem(null)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8' }}
+              >
+                <IconX size={18} />
+              </button>
+            </div>
+
+            <div className="pos-ref-dialog-body" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px' }}>
+                <div style={{ fontWeight: 800, fontSize: '14px', color: '#0f172a', marginBottom: '6px' }}>
+                  {customRentalModalItem.product.name}
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0', padding: '3px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 700 }}>
+                    ⏱️ Elapsed: {customRentalModalItem.product.duration || 'Active Rental'}
+                  </span>
+                  {customRentalModalItem.product.startTime && (
+                    <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 600 }}>
+                      Started: {customRentalModalItem.product.startTime}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+                  Manual Custom Fee for this Time (Rs.):
+                </label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '16px', fontWeight: 800, color: '#64748b' }}>Rs.</span>
+                  <input
+                    type="number"
+                    value={customRentalPriceInput}
+                    onChange={(e) => setCustomRentalPriceInput(e.target.value)}
+                    placeholder="e.g. 1500"
+                    autoFocus
+                    style={{
+                      flex: 1,
+                      padding: '10px 14px',
+                      fontSize: '18px',
+                      fontWeight: 800,
+                      borderRadius: '8px',
+                      border: '2px solid #0284c7',
+                      color: '#0f172a'
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <span style={{ display: 'block', fontSize: '11.5px', fontWeight: 600, color: '#64748b', marginBottom: '6px' }}>
+                  Quick Presets:
+                </span>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    onClick={() => setCustomRentalPriceInput('1000')}
+                    style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#ffffff', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}
+                  >
+                    1 Hr (Rs. 1,000)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCustomRentalPriceInput('1500')}
+                    style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#ffffff', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}
+                  >
+                    Rs. 1,500 Flat
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCustomRentalPriceInput('2000')}
+                    style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#ffffff', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}
+                  >
+                    Rs. 2,000 Flat
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', marginTop: '6px' }}>
+                <button
+                  type="button"
+                  onClick={() => handleApplyCustomRentalPrice()}
+                  style={{
+                    flex: 1,
+                    padding: '12px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    background: '#0284c7',
+                    color: '#ffffff',
+                    fontSize: '13.5px',
+                    fontWeight: 800,
+                    cursor: 'pointer'
+                  }}
+                >
+                  ✓ Apply Custom Price
+                </button>
+                <button
+                  type="button"
+                  onClick={handleResetCustomRentalPrice}
+                  style={{
+                    padding: '12px 16px',
+                    borderRadius: '8px',
+                    border: '1px solid #cbd5e1',
+                    background: '#f8fafc',
+                    color: '#475569',
+                    fontSize: '12.5px',
+                    fontWeight: 700,
+                    cursor: 'pointer'
+                  }}
+                  title="Reset to automatic duration calculation"
+                >
+                  Reset to Auto
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Professional Receipt & Print Modal */}
       {showReceiptModal && (

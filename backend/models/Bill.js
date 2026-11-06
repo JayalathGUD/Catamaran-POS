@@ -10,6 +10,8 @@ const billItemSchema = new mongoose.Schema(
     duration: { type: String, default: '' },
     startTime: { type: String, default: '' },
     endTime: { type: String, default: '' },
+    isCustomPrice: { type: Boolean, default: false },
+    customPrice: { type: Number },
     addedAt: { type: String, default: () => new Date().toISOString() }
   },
   { _id: false }

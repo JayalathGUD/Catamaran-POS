@@ -2,7 +2,7 @@ import { usePosSettings } from '../utils/settingsStore'
 import React, { useEffect, useMemo, useState } from 'react'
 import { formatLKR, formatLKRCompact } from '../data/demoData'
 import { getOpenBills, payBill, updateBillStatus, updateOpenBillItems } from '../services/api'
-import { HistoryBill, NavigationPage } from '../types'
+import { BillItem, HistoryBill, NavigationPage } from '../types'
 import { ProfessionalReceipt } from './ProfessionalReceipt'
 import {
   IconAlertTriangle,
@@ -56,6 +56,8 @@ export const OpenBills: React.FC<OpenBillsProps> = ({
   const [isSavingRef, setIsSavingRef] = useState<boolean>(false)
 
   const [settledReceiptBill, setSettledReceiptBill] = useState<HistoryBill | null>(null)
+  const [openBillsCustomPrice, setOpenBillsCustomPrice] = useState<number | null>(null)
+  const [isUpdatingRentalPrice, setIsUpdatingRentalPrice] = useState<boolean>(false)
   const [kotBill, setKotBill] = useState<HistoryBill | null>(null)
   const [toast, setToast] = useState<string | null>(null)
 
@@ -135,6 +137,58 @@ export const OpenBills: React.FC<OpenBillsProps> = ({
   }, [bills])
 
   // Handle Pay & Close Bill
+  const handleApplyRentalFeeInOpenBill = async (rItem: BillItem) => {
+    if (!billToPay || openBillsCustomPrice === null) return
+    setIsUpdatingRentalPrice(true)
+    try {
+      const updatedItems = billToPay.items.map((it) => {
+        if (it.code === 'RENTAL' && it.name === rItem.name) {
+          return {
+            name: it.name,
+            quantity: it.quantity,
+            unitPrice: openBillsCustomPrice,
+            total: openBillsCustomPrice * it.quantity,
+            code: it.code,
+            duration: it.duration,
+            startTime: it.startTime,
+            endTime: it.endTime,
+            isCustomPrice: true,
+            customPrice: openBillsCustomPrice
+          }
+        }
+        return {
+          name: it.name,
+          quantity: it.quantity,
+          unitPrice: it.unitPrice,
+          total: it.total,
+          code: it.code,
+          duration: it.duration,
+          startTime: it.startTime,
+          endTime: it.endTime,
+          isCustomPrice: it.isCustomPrice,
+          customPrice: it.customPrice
+        }
+      })
+
+      const updatedBill = await updateOpenBillItems(billToPay.id, {
+        items: updatedItems,
+        customerName: billToPay.customerName,
+        discount: billToPay.discount,
+        serviceCharge: billToPay.serviceCharge,
+        cashier: billToPay.cashier
+      })
+
+      setBillToPay(updatedBill)
+      setBills((prev) => prev.map((b) => (b.id === updatedBill.id ? updatedBill : b)))
+      showToast(`Updated surfboard rental fee to ${formatLKR(openBillsCustomPrice)} (Custom Price)`)
+    } catch (err) {
+      console.error('Failed to update rental fee:', err)
+      showToast('Could not update rental price')
+    } finally {
+      setIsUpdatingRentalPrice(false)
+    }
+  }
+
   const handleConfirmPayment = async (): Promise<void> => {
     if (!billToPay) return
     setIsSubmittingPay(true)

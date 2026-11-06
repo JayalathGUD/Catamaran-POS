@@ -84,6 +84,8 @@ function formatBillResponse(b: any): HistoryBill {
           duration: i.duration ? String(i.duration) : undefined,
           startTime: i.startTime ? String(i.startTime) : undefined,
           endTime: i.endTime ? String(i.endTime) : undefined,
+          isCustomPrice: Boolean(i.isCustomPrice),
+          customPrice: i.customPrice !== undefined && i.customPrice !== null ? Number(i.customPrice) : undefined,
           addedAt: i.addedAt ? String(i.addedAt) : undefined
         }))
       : [],
@@ -134,7 +136,19 @@ export async function createBill(billData: {
   orderType: string
   saleType?: string
   paymentMethod: string
-  items: Array<{ name: string; quantity: number; unitPrice: number; total: number; code?: string; addedAt?: string }>
+  items: Array<{
+      name: string
+      quantity: number
+      unitPrice: number
+      total: number
+      code?: string
+      duration?: string
+      startTime?: string
+      endTime?: string
+      isCustomPrice?: boolean
+      customPrice?: number
+      addedAt?: string
+    }>
   subtotal: number
   discount: number
   serviceCharge: number
@@ -186,7 +200,19 @@ export async function addItemsToBill(
 export async function updateOpenBillItems(
   billId: string,
   payload: {
-    items: Array<{ name: string; quantity: number; unitPrice: number; total: number; code?: string; addedAt?: string }>
+    items: Array<{
+      name: string
+      quantity: number
+      unitPrice: number
+      total: number
+      code?: string
+      duration?: string
+      startTime?: string
+      endTime?: string
+      isCustomPrice?: boolean
+      customPrice?: number
+      addedAt?: string
+    }>
     customerName?: string
     discount?: number
     serviceCharge?: number

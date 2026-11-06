@@ -533,11 +533,22 @@ async function syncLiveRentalTimeOnBill(bill) {
       const rentalItemIdx = bill.items.findIndex((it) => it.code === 'RENTAL');
 
       if (rentalItemIdx >= 0) {
-        bill.items[rentalItemIdx].name = rentalItemName;
-        bill.items[rentalItemIdx].unitPrice = liveCharge;
-        bill.items[rentalItemIdx].total = liveCharge;
-        bill.items[rentalItemIdx].duration = durationDisplay;
-        bill.items[rentalItemIdx].startTime = rental.startTime;
+        const item = bill.items[rentalItemIdx];
+        const isCustom = Boolean(item.isCustomPrice);
+        const customAmt =
+          item.customPrice !== undefined && item.customPrice !== null
+            ? Number(item.customPrice)
+            : isCustom
+            ? item.unitPrice
+            : null;
+        const finalPrice = isCustom && customAmt !== null ? customAmt : liveCharge;
+        const customSuffix = isCustom && customAmt !== null ? ' [Custom Rate]' : '';
+
+        item.name = `Surfboard Rental - ${rental.boardName} (${durationDisplay} · Started: ${rental.startTime})${customSuffix}`;
+        item.unitPrice = finalPrice;
+        item.total = finalPrice;
+        item.duration = durationDisplay;
+        item.startTime = rental.startTime;
       } else {
         bill.items.unshift({
           name: rentalItemName,
@@ -954,6 +965,16 @@ app.post('/api/bills', async (req, res) => {
             unitPrice: it.unitPrice,
             total: it.unitPrice * it.quantity,
             code: it.code ? String(it.code).trim().toUpperCase() : '',
+            duration: it.duration || '',
+            startTime: it.startTime || '',
+            endTime: it.endTime || '',
+            isCustomPrice: Boolean(it.isCustomPrice),
+            customPrice:
+              it.customPrice !== undefined && it.customPrice !== null
+                ? Number(it.customPrice)
+                : it.isCustomPrice
+                ? it.unitPrice
+                : undefined,
             addedAt: it.addedAt || nowIso
           })),
           subtotal: computedSubtotal,
@@ -1399,6 +1420,13 @@ app.patch('/api/bills/:id/items', async (req, res) => {
         duration: line.duration || '',
         startTime: line.startTime || '',
         endTime: line.endTime || '',
+        isCustomPrice: Boolean(line.isCustomPrice),
+        customPrice:
+          line.customPrice !== undefined && line.customPrice !== null
+            ? Number(line.customPrice)
+            : line.isCustomPrice
+            ? line.unitPrice
+            : undefined,
         addedAt: line.addedAt || new Date().toISOString()
       }));
 
@@ -1572,10 +1600,12 @@ app.post('/api/bills/:id/pay', async (req, res) => {
             // Update rental line item on bill with exact calculated time
             const rentalItem = bill.items.find((it) => it.code === 'RENTAL');
             if (rentalItem) {
-              rentalItem.name = `Surfboard Rental - ${rental.boardName} (${durationDisplay} | ${rental.startTime} - ${slNow.timeStr})`;
+              const customSuffix = rentalItem.isCustomPrice ? ' [Custom Rate]' : '';
+              rentalItem.name = `Surfboard Rental - ${rental.boardName} (${durationDisplay} | ${rental.startTime} - ${slNow.timeStr})${customSuffix}`;
               rentalItem.duration = durationDisplay;
               rentalItem.startTime = rental.startTime;
               rentalItem.endTime = slNow.timeStr;
+              rental.totalFee = rentalItem.total;
               await bill.save(sessionOpt);
             }
           }

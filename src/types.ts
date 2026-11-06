@@ -54,12 +54,22 @@ export interface PosProduct {
   costPrice?: number
   stockTracking?: boolean
   isActive?: boolean
+  duration?: string
+  startTime?: string
+  endTime?: string
+  isCustomPrice?: boolean
+  customPrice?: number
 }
 
 export interface PosCartItem {
   id: string
   product: PosProduct
   quantity: number
+  duration?: string
+  startTime?: string
+  endTime?: string
+  isCustomPrice?: boolean
+  customPrice?: number
 }
 
 export interface BillItem {
@@ -74,6 +84,8 @@ export interface BillItem {
   duration?: string
   startTime?: string
   endTime?: string
+  isCustomPrice?: boolean
+  customPrice?: number
   addedAt?: string
 }
 

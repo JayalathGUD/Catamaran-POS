@@ -231,7 +231,7 @@ export const ProfessionalReceipt: React.FC<ProfessionalReceiptProps> = ({
         >
           {/* Print Target (This container alone is printed when window.print() is called) */}
           <div
-            className="thermal-paper-80mm thermal-paper-58mm pro-receipt-paper"
+            className="thermal-paper-80mm pro-receipt-paper"
             id="thermal-print-target"
             style={{
               backgroundColor: '#ffffff',
