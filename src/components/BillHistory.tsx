@@ -1051,13 +1051,13 @@ export const BillHistory: React.FC<BillHistoryProps> = ({ onNavigate }) => {
                 </div>
                 {selectedBill.amountTendered !== undefined && selectedBill.amountTendered > 0 && (
                   <div className="detail-total-line">
-                    <span>Customer Tendered (දෙන මුදල):</span>
+                    <span>Customer Tendered:</span>
                     <strong>{formatLKR(selectedBill.amountTendered)}</strong>
                   </div>
                 )}
                 {selectedBill.changeDue !== undefined && (
                   <div className="detail-total-line text-change">
-                    <span>Change Returned (ඉතිරි මුදල):</span>
+                    <span>Change Returned:</span>
                     <strong style={{ color: '#2563eb' }}>{formatLKR(selectedBill.changeDue)}</strong>
                   </div>
                 )}

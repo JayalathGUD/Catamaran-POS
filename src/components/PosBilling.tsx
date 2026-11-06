@@ -85,7 +85,9 @@ function getInitialInvMap(): Map<string, number> {
       posMemoryInvMapCache = map
       return map
     }
-  } catch {}
+  } catch {
+    // Ignore localStorage read or JSON parse errors
+  }
   return new Map()
 }
 
@@ -164,6 +166,7 @@ export const PosBilling: React.FC<PosBillingProps> = ({
   const [validationError, setValidationError] = useState<string | null>(null)
   const [customRentalModalItem, setCustomRentalModalItem] = useState<PosCartItem | null>(null)
   const [customRentalPriceInput, setCustomRentalPriceInput] = useState<string>('')
+  const [editingRentalPrices, setEditingRentalPrices] = useState<Record<string, string>>({})
   const [showReceiptModal, setShowReceiptModal] = useState<boolean>(false)
   const [receiptModalInitialView, setReceiptModalInitialView] = useState<'customer' | 'kitchen'>('customer')
   const [completedBillNumber, setCompletedBillNumber] = useState<string>('')
@@ -235,7 +238,9 @@ export const PosBilling: React.FC<PosBillingProps> = ({
           obj[k] = v
         })
         localStorage.setItem('catamaran_cached_inv_map', JSON.stringify(obj))
-      } catch {}
+      } catch {
+        // Ignore localStorage quota or storage restriction errors
+      }
     } catch (err: unknown) {
       console.error('Failed to load menu in POS:', err)
       const msg = err instanceof Error ? err.message : 'Could not load menu items'
@@ -286,7 +291,9 @@ export const PosBilling: React.FC<PosBillingProps> = ({
               obj[k] = v
             })
             localStorage.setItem('catamaran_cached_inv_map', JSON.stringify(obj))
-          } catch {}
+          } catch {
+            // Ignore localStorage quota or storage restriction errors
+          }
         }
       } catch (err: unknown) {
         if (!ignore) {
@@ -340,9 +347,19 @@ export const PosBilling: React.FC<PosBillingProps> = ({
                 category: it.code === 'LESSON' ? 'Surf Lessons' : it.code === 'RENTAL' ? 'Other Services' : 'Food',
                 price: it.unitPrice,
                 code: it.code || '',
-                stockTracking: Boolean(it.code && inventoryMap.has(it.code.toUpperCase()))
+                stockTracking: Boolean(it.code && inventoryMap.has(it.code.toUpperCase())),
+                duration: it.duration,
+                startTime: it.startTime,
+                endTime: it.endTime,
+                isCustomPrice: Boolean(it.isCustomPrice),
+                customPrice: it.customPrice
               },
-              quantity: it.quantity
+              quantity: it.quantity,
+              duration: it.duration,
+              startTime: it.startTime,
+              endTime: it.endTime,
+              isCustomPrice: Boolean(it.isCustomPrice),
+              customPrice: it.customPrice
             }))
             setCart(mappedCart)
             showToast(`Loaded Open Tab #${b.billNumber} (${b.customerName || 'No guest name'})`)
@@ -358,6 +375,63 @@ export const PosBilling: React.FC<PosBillingProps> = ({
       ignore = true
     }
   }, [activeOpenBillId, inventoryMap])
+
+  // Real-time live synchronization for active open bill (calculates surf rent time & price in real-time!)
+  useEffect(() => {
+    const targetBillId = activeBill?.id || activeOpenBillId
+    if (!targetBillId) return
+
+    const liveTimer = setInterval(async () => {
+      // Do not overwrite while user is actively typing a custom price
+      if (customRentalModalItem || Object.keys(editingRentalPrices).length > 0) return
+
+      try {
+        const syncedBill = await getBillById(targetBillId)
+        if (syncedBill && syncedBill.status === 'Open') {
+          const rentalItem = syncedBill.items.find(
+            (it) =>
+              it.code === 'RENTAL' ||
+              it.name.toLowerCase().includes('surfboard') ||
+              it.name.toLowerCase().includes('surf board')
+          )
+          if (rentalItem) {
+            setCart((prevCart) => {
+              return prevCart.map((cItem) => {
+                const isRental =
+                  cItem.product.code === 'RENTAL' ||
+                  cItem.product.name.toLowerCase().includes('surfboard') ||
+                  cItem.product.name.toLowerCase().includes('surf board')
+
+                if (isRental && !cItem.product.isCustomPrice) {
+                  return {
+                    ...cItem,
+                    product: {
+                      ...cItem.product,
+                      name: rentalItem.name,
+                      price: rentalItem.unitPrice,
+                      duration: rentalItem.duration,
+                      startTime: rentalItem.startTime,
+                      isCustomPrice: false
+                    },
+                    duration: rentalItem.duration,
+                    startTime: rentalItem.startTime,
+                    isCustomPrice: false
+                  }
+                }
+                return cItem
+              })
+            })
+          }
+          setActiveBill(syncedBill)
+        }
+      } catch (err) {
+        // silent fail on network glitch
+      }
+    }, 3000)
+
+    return () => clearInterval(liveTimer)
+  }, [activeOpenBillId, activeBill?.id, customRentalModalItem, editingRentalPrices])
+
 
   // Filter Products
   const filteredProducts = useMemo(() => {
@@ -604,7 +678,12 @@ export const PosBilling: React.FC<PosBillingProps> = ({
           quantity: i.quantity,
           unitPrice: i.product.price,
           total: i.product.price * i.quantity,
-          code: i.product.code
+          code: i.product.code,
+          duration: i.product.duration,
+          startTime: i.product.startTime,
+          endTime: i.product.endTime,
+          isCustomPrice: i.product.isCustomPrice,
+          customPrice: i.product.customPrice
         })),
         subtotal,
         discount: effectiveDiscount,
@@ -686,7 +765,12 @@ export const PosBilling: React.FC<PosBillingProps> = ({
           quantity: i.quantity,
           unitPrice: i.product.price,
           total: i.product.price * i.quantity,
-          code: i.product.code
+          code: i.product.code,
+          duration: i.product.duration,
+          startTime: i.product.startTime,
+          endTime: i.product.endTime,
+          isCustomPrice: i.product.isCustomPrice,
+          customPrice: i.product.customPrice
         })),
         customerName: customerReference.trim(),
         discount: effectiveDiscount,
@@ -730,7 +814,12 @@ export const PosBilling: React.FC<PosBillingProps> = ({
           quantity: i.quantity,
           unitPrice: i.product.price,
           total: i.product.price * i.quantity,
-          code: i.product.code
+          code: i.product.code,
+          duration: i.product.duration,
+          startTime: i.product.startTime,
+          endTime: i.product.endTime,
+          isCustomPrice: i.product.isCustomPrice,
+          customPrice: i.product.customPrice
         })),
         customerName: customerReference.trim(),
         discount: effectiveDiscount,
@@ -811,6 +900,49 @@ export const PosBilling: React.FC<PosBillingProps> = ({
       showToast(err instanceof Error ? err.message : 'Could not cancel bill')
     } finally {
       setIsCancellingBill(false)
+    }
+  }
+
+  const handleInlineRentalPriceChange = (productId: string, newPrice: number) => {
+    const updatedCart = cart.map((it) => {
+      if (it.product.id === productId) {
+        return {
+          ...it,
+          product: {
+            ...it.product,
+            price: newPrice,
+            isCustomPrice: true,
+            customPrice: newPrice
+          },
+          isCustomPrice: true,
+          customPrice: newPrice
+        }
+      }
+      return it
+    })
+    setCart(updatedCart)
+
+    if (activeBill) {
+      updateOpenBillItems(activeBill.id, {
+        items: updatedCart.map((i) => ({
+          name: i.product.name,
+          quantity: i.quantity,
+          unitPrice: i.product.price,
+          total: i.product.price * i.quantity,
+          code: i.product.code,
+          duration: i.product.duration,
+          startTime: i.product.startTime,
+          endTime: i.product.endTime,
+          isCustomPrice: i.product.isCustomPrice,
+          customPrice: i.product.customPrice
+        })),
+        customerName: customerReference.trim(),
+        discount: effectiveDiscount,
+        serviceCharge: serviceChargeAmount,
+        cashier: settings.cashierName || 'Kasun P.'
+      })
+        .then((updated) => setActiveBill(updated))
+        .catch((err) => console.warn('Sync custom price error:', err))
     }
   }
 
@@ -1684,17 +1816,37 @@ export const PosBilling: React.FC<PosBillingProps> = ({
                 <div className="cart-items-list">
                   {cart.map((item) => {
                     const itemTotal = item.product.price * item.quantity
+                    const isSurfboard =
+                      item.product.code === 'RENTAL' ||
+                      item.product.name.toLowerCase().includes('surfboard') ||
+                      item.product.name.toLowerCase().includes('surf board')
+
                     return (
-                      <div key={item.id} className="cart-item-row">
+                      <div
+                        key={item.id}
+                        className={`cart-item-row ${isSurfboard ? 'cart-item-surfboard-row' : ''}`}
+                      >
                         <div className="cart-item-left">
                           <strong className="cart-item-name">{item.product.name}</strong>
-                          <span className="cart-item-rate">
-                            {formatLKR(item.product.price)} &times; {item.quantity}
-                          </span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginTop: '2px' }}>
+                            <span className="cart-item-rate">
+                              {formatLKR(item.product.price)} &times; {item.quantity}
+                            </span>
+                            {item.product.duration && (
+                              <span style={{ fontSize: '10.5px', fontWeight: 700, color: '#0369a1', background: '#e0f2fe', padding: '1px 6px', borderRadius: '4px' }}>
+                                ⏱️ {item.product.duration}
+                              </span>
+                            )}
+                            {item.product.isCustomPrice && (
+                              <span style={{ fontSize: '10px', fontWeight: 800, color: '#047857', background: '#dcfce7', border: '1px solid #86efac', padding: '1px 5px', borderRadius: '4px' }}>
+                                Custom Rate
+                              </span>
+                            )}
+                          </div>
                         </div>
 
                         <div className="cart-item-right">
-                          {/* Tactile Quantity Stepper */}
+                          {/* Tactile Quantity Stepper (Locked to 1 Session for rentals / lessons) */}
                           {item.product.code === 'RENTAL' || item.product.code === 'LESSON' ? (
                             <span style={{ fontSize: '11px', fontWeight: 700, padding: '3px 8px', borderRadius: '4px', background: '#e0f2fe', color: '#0369a1', border: '1px solid #bae6fd', whiteSpace: 'nowrap' }}>
                               1 Session
@@ -1721,8 +1873,47 @@ export const PosBilling: React.FC<PosBillingProps> = ({
                             </div>
                           )}
 
-                          {/* Line Total */}
-                          <strong className="cart-item-total">{formatLKR(itemTotal)}</strong>
+                          {/* Line Total: Editable Price for Surfboards ONLY, Normal fixed price for food/beverage */}
+                          {isSurfboard ? (
+                            <div className="cart-surf-price-editor" title="Click to edit surfboard rental price">
+                              <span className="cart-surf-currency">Rs.</span>
+                              <input
+                                type="number"
+                                className="cart-surf-price-input"
+                                value={
+                                  editingRentalPrices[item.product.id] !== undefined
+                                    ? editingRentalPrices[item.product.id]
+                                    : item.product.price
+                                }
+                                onChange={(e) => {
+                                  const val = e.target.value
+                                  setEditingRentalPrices((prev) => ({ ...prev, [item.product.id]: val }))
+                                  const num = parseFloat(val)
+                                  if (!isNaN(num) && num >= 0) {
+                                    handleInlineRentalPriceChange(item.product.id, num)
+                                  }
+                                }}
+                                onBlur={() => {
+                                  const raw = editingRentalPrices[item.product.id]
+                                  const num = raw !== undefined ? parseFloat(raw) : item.product.price
+                                  if (!isNaN(num) && num >= 0) {
+                                    handleInlineRentalPriceChange(item.product.id, num)
+                                  }
+                                  setEditingRentalPrices((prev) => {
+                                    const copy = { ...prev }
+                                    delete copy[item.product.id]
+                                    return copy
+                                  })
+                                }}
+                                onFocus={(e) => e.target.select()}
+                                min="0"
+                                step="50"
+                              />
+                              <span className="cart-surf-edit-pencil">✏️</span>
+                            </div>
+                          ) : (
+                            <strong className="cart-item-total">{formatLKR(itemTotal)}</strong>
+                          )}
 
                           {/* Remove button */}
                           <button
@@ -1900,7 +2091,7 @@ export const PosBilling: React.FC<PosBillingProps> = ({
               {paymentMethod === 'Split' && finalTotal > 0 && (
                 <div className="pro-split-container">
                   <div className="pro-split-header">
-                    <span className="pro-split-title">⚡ Split Payment (මුදල් බෙදා ගෙවීම)</span>
+                    <span className="pro-split-title">⚡ Split Payment</span>
                     <button
                       type="button"
                       className="pro-split-preset-pill"
@@ -1918,7 +2109,7 @@ export const PosBilling: React.FC<PosBillingProps> = ({
                     {/* Cash Portion Input */}
                     <div className="pro-split-box">
                       <label className="pro-split-box-label">
-                        <span>💵 Cash Portion (මුදලින් කොටස)</span>
+                        <span>💵 Cash Portion</span>
                       </label>
                       <div className="pro-tender-input-wrap">
                         <span className="pro-currency-tag">Rs.</span>
@@ -1937,7 +2128,7 @@ export const PosBilling: React.FC<PosBillingProps> = ({
                     {/* Card Portion Input */}
                     <div className="pro-split-box">
                       <label className="pro-split-box-label">
-                        <span>💳 Card Portion (කාඩ්පතෙන්)</span>
+                        <span>💳 Card Portion</span>
                       </label>
                       <div className="pro-tender-input-wrap">
                         <span className="pro-currency-tag">Rs.</span>
@@ -1958,7 +2149,7 @@ export const PosBilling: React.FC<PosBillingProps> = ({
                   <div className="pro-split-cash-received-block">
                     <div className="pro-tender-row">
                       <label className="pro-tender-label">
-                        Cash Given by Guest (දෙන ලද මුදල් නෝට්ටුව):
+                        Cash Given by Guest:
                       </label>
                       <div className="pro-tender-input-wrap">
                         <span className="pro-currency-tag">Rs.</span>
@@ -2030,7 +2221,7 @@ export const PosBilling: React.FC<PosBillingProps> = ({
                 <div className="pro-cash-section">
                   <div className="pro-tender-row">
                     <label htmlFor="tender-amount-input" className="pro-tender-label">
-                      Cash Received (පාරිභෝගිකයා දුන් මුදල):
+                      Cash Received:
                     </label>
                     <div className="pro-tender-input-wrap">
                       <span className="pro-currency-tag">Rs.</span>
@@ -2076,8 +2267,8 @@ export const PosBilling: React.FC<PosBillingProps> = ({
                     <div className="pro-change-meta">
                       <span className="pro-change-kicker">
                         {tenderedAmount >= finalTotal
-                          ? 'CHANGE DUE TO GUEST (ඉතිරි මුදල)'
-                          : 'AMOUNT SHORT (අඩු මුදල)'}
+                          ? 'CHANGE DUE TO GUEST'
+                          : 'AMOUNT SHORT'}
                       </span>
                       <span className="pro-change-hint">
                         {tenderedAmount >= finalTotal
@@ -2101,7 +2292,7 @@ export const PosBilling: React.FC<PosBillingProps> = ({
                     {/* Active Tab: Final payment & checkout when guest leaves */}
                     <button
                       type="button"
-                      className="pro-btn-settle"
+                      className="pro-btn-kitchen-send"
                       onClick={handleCompleteBill}
                       disabled={
                         cart.length === 0 ||
@@ -2109,27 +2300,28 @@ export const PosBilling: React.FC<PosBillingProps> = ({
                         isUpdatingOpenBill ||
                         (paymentMethod === 'Split' && !isSplitBalanced)
                       }
-                      style={{ background: 'linear-gradient(135deg, #0f766e 0%, #115e59 100%)' }}
                     >
                       {isSubmittingBill ? (
-                        <>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#5eead4', fontWeight: 800, fontSize: '13px' }}>
                           <IconRotateCcw size={18} style={{ animation: 'spin 1s linear infinite' }} />
                           <span>Settling &amp; Closing Tab...</span>
-                        </>
+                        </div>
                       ) : (
                         <>
-                          <div className="pro-btn-content">
-                            <IconCheck size={18} />
-                            <div style={{ textAlign: 'left' }}>
-                              <div style={{ fontWeight: 800, fontSize: '13.5px' }}>
-                                Pay &amp; Settle Tab (Guest Leaving)
-                              </div>
-                              <div style={{ fontSize: '10px', opacity: 0.88, fontWeight: 500 }}>
-                                Collect payment · Print Official Customer Bill
-                              </div>
-                            </div>
+                          <div className="pro-total-meta" style={{ textAlign: 'left' }}>
+                            <span className="pro-total-title" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span>💳</span> PAY &amp; SETTLE TAB (GUEST LEAVING)
+                            </span>
+                            <span className="pro-total-subtitle">
+                              Collect payment · Print Official Customer Bill
+                            </span>
                           </div>
-                          <span className="pro-btn-badge">{formatLKR(finalTotal)}</span>
+                          <div className="pro-total-figure">
+                            <span className="pro-currency-symbol">Rs.</span>
+                            <span className="pro-total-number">
+                              {finalTotal.toLocaleString('en-LK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                          </div>
                         </>
                       )}
                     </button>
@@ -2198,24 +2390,26 @@ export const PosBilling: React.FC<PosBillingProps> = ({
                       disabled={cart.length === 0 || isHoldingBill || isSubmittingBill}
                     >
                       {isHoldingBill ? (
-                        <>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#5eead4', fontWeight: 800, fontSize: '13px' }}>
                           <IconRotateCcw size={18} style={{ animation: 'spin 1s linear infinite' }} />
-                          <span>Sending to Kitchen...</span>
-                        </>
+                          <span>Sending to Kitchen &amp; Printing KOT...</span>
+                        </div>
                       ) : (
                         <>
-                          <div className="pro-btn-content">
-                            <span style={{ fontSize: '20px' }}>🍳</span>
-                            <div style={{ textAlign: 'left' }}>
-                              <div style={{ fontWeight: 800, fontSize: '14px' }}>
-                                Send Order to Kitchen (Hold Tab)
-                              </div>
-                              <div style={{ fontSize: '10.5px', opacity: 0.9, fontWeight: 500 }}>
-                                Prints 80mm KOT now · Customer pays upon leaving
-                              </div>
-                            </div>
+                          <div className="pro-total-meta" style={{ textAlign: 'left' }}>
+                            <span className="pro-total-title" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span>🍳</span> SEND ORDER TO KITCHEN (HOLD TAB)
+                            </span>
+                            <span className="pro-total-subtitle">
+                              Prints 80mm KOT now · Customer pays upon leaving
+                            </span>
                           </div>
-                          <span className="pro-btn-badge">{formatLKR(finalTotal)}</span>
+                          <div className="pro-total-figure">
+                            <span className="pro-currency-symbol">Rs.</span>
+                            <span className="pro-total-number">
+                              {finalTotal.toLocaleString('en-LK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                          </div>
                         </>
                       )}
                     </button>
@@ -2253,7 +2447,7 @@ export const PosBilling: React.FC<PosBillingProps> = ({
                     {/* TAKEAWAY WORKFLOW: Customer pays upfront at counter */}
                     <button
                       type="button"
-                      className="pro-btn-settle"
+                      className="pro-btn-kitchen-send"
                       onClick={handleCompleteBill}
                       disabled={
                         cart.length === 0 ||
@@ -2263,24 +2457,26 @@ export const PosBilling: React.FC<PosBillingProps> = ({
                       }
                     >
                       {isSubmittingBill ? (
-                        <>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#5eead4', fontWeight: 800, fontSize: '13px' }}>
                           <IconRotateCcw size={18} style={{ animation: 'spin 1s linear infinite' }} />
-                          <span>Processing Payment...</span>
-                        </>
+                          <span>Processing Payment &amp; Printing...</span>
+                        </div>
                       ) : (
                         <>
-                          <div className="pro-btn-content">
-                            <IconCheck size={18} />
-                            <div style={{ textAlign: 'left' }}>
-                              <div style={{ fontWeight: 800, fontSize: '14px' }}>
-                                Settle &amp; Print Bill (Pay Now)
-                              </div>
-                              <div style={{ fontSize: '10.5px', opacity: 0.9, fontWeight: 500 }}>
-                                Customer pays upfront · Prints Bill + KOT
-                              </div>
-                            </div>
+                          <div className="pro-total-meta" style={{ textAlign: 'left' }}>
+                            <span className="pro-total-title" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span>💳</span> SETTLE &amp; PRINT BILL (PAY NOW)
+                            </span>
+                            <span className="pro-total-subtitle">
+                              Customer pays upfront · Prints Bill + KOT
+                            </span>
                           </div>
-                          <span className="pro-btn-badge">{formatLKR(finalTotal)}</span>
+                          <div className="pro-total-figure">
+                            <span className="pro-currency-symbol">Rs.</span>
+                            <span className="pro-total-number">
+                              {finalTotal.toLocaleString('en-LK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                          </div>
                         </>
                       )}
                     </button>

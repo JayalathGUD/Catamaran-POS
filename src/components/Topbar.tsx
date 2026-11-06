@@ -1,4 +1,5 @@
 import { usePosSettings } from '../utils/settingsStore'
+import { useSoftwareUpdate } from '../utils/updateStore'
 import React, { useEffect, useRef, useState } from 'react'
 import { InventoryItem, NavigationPage } from '../types'
 import { IconAlertTriangle, IconChevronRight, IconClock, IconInfo, IconX } from './Icons'
@@ -12,6 +13,7 @@ interface TopbarProps {
 
 export const Topbar: React.FC<TopbarProps> = ({ currentPage, lowStockItems = [], onNavigate }) => {
   const { settings } = usePosSettings()
+  const [updateState, { restartAndInstall, restoreBanner }] = useSoftwareUpdate()
   const [showStockDropdown, setShowStockDropdown] = useState<boolean>(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
@@ -39,23 +41,6 @@ export const Topbar: React.FC<TopbarProps> = ({ currentPage, lowStockItems = [],
 
   const lowStockCount = lowStockItems.length
 
-  const [updateInfo, setUpdateInfo] = useState<{
-    status: string
-    text: string
-    version?: string
-    percent?: number
-  } | null>(null)
-
-  useEffect(() => {
-    if (!window.electronAPI?.onUpdateMessage) return
-    const unsubscribe = window.electronAPI.onUpdateMessage((msg) => {
-      setUpdateInfo(msg)
-    })
-    return () => {
-      unsubscribe?.()
-    }
-  }, [])
-
   return (
     <header className="app-topbar">
       <div className="topbar-left">
@@ -67,8 +52,8 @@ export const Topbar: React.FC<TopbarProps> = ({ currentPage, lowStockItems = [],
       </div>
 
       <div className="topbar-right">
-        {/* Electron Auto-Update Indicators */}
-        {updateInfo && updateInfo.status === 'downloading' && (
+        {/* Software Update Indicators & Quick Restore Buttons */}
+        {updateState.status === 'downloading' && (
           <div
             className="topbar-update-banner"
             style={{
@@ -85,15 +70,15 @@ export const Topbar: React.FC<TopbarProps> = ({ currentPage, lowStockItems = [],
             }}
           >
             <span className="demo-badge-dot" style={{ backgroundColor: '#3b82f6' }} />
-            <span>Downloading Update: {updateInfo.percent ?? 0}%</span>
+            <span>Downloading Update: {updateState.percent ?? 0}%</span>
           </div>
         )}
 
-        {updateInfo && updateInfo.status === 'downloaded' && (
+        {updateState.status === 'downloaded' && (
           <button
             type="button"
             className="topbar-update-btn"
-            onClick={() => window.electronAPI?.restartAndInstallUpdate()}
+            onClick={restartAndInstall}
             style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -111,6 +96,31 @@ export const Topbar: React.FC<TopbarProps> = ({ currentPage, lowStockItems = [],
             title="Click to restart and install update"
           >
             <span>🚀 Update Ready! Restart Now</span>
+          </button>
+        )}
+
+        {updateState.isDismissed && updateState.status === 'available' && (
+          <button
+            type="button"
+            className="topbar-update-btn"
+            onClick={restoreBanner}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '5px 13px',
+              borderRadius: '20px',
+              backgroundColor: '#0284c7',
+              border: '1px solid #0369a1',
+              color: '#ffffff',
+              fontSize: '11px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              boxShadow: '0 2px 8px rgba(2, 132, 199, 0.4)'
+            }}
+            title="Click to view update details and install"
+          >
+            <span>⚡ Update v{updateState.latestVersion || 'New'} Available!</span>
           </button>
         )}
 

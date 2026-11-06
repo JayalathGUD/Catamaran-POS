@@ -219,7 +219,7 @@ export async function downloadBillPDF(bill: BillPdfPayload | HistoryBill): Promi
   y += 2.8
   doc.text(website, pageWidth / 2, y, { align: 'center' })
   y += 3
-  doc.text('[ - - - - THANK YOU - - - - ]', pageWidth / 2, y, { align: 'center' })
+  doc.text('[ - - - - - - THANK YOU - - - - - - ]', pageWidth / 2, y, { align: 'center' })
   y += 3.5
   doc.text(credit, pageWidth / 2, y, { align: 'center' })
 

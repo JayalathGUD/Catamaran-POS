@@ -23,16 +23,23 @@ export function printThermalReceipt(elementId: string = 'thermal-print-target'):
     oldFrame.remove()
   }
 
-  // Create clean isolated iframe
+  // Check if running in Electron environment with direct thermal print IPC
+  if ((window as any).electronAPI?.printThermal) {
+    (window as any).electronAPI.printThermal({ silent: false })
+    return
+  }
+
+  // Create clean isolated iframe with explicit 80mm width offscreen
   const iframe = document.createElement('iframe')
   iframe.id = 'pos-silent-print-frame'
   iframe.style.position = 'fixed'
-  iframe.style.right = '0'
-  iframe.style.bottom = '0'
-  iframe.style.width = '0'
-  iframe.style.height = '0'
+  iframe.style.top = '-9999px'
+  iframe.style.left = '-9999px'
+  iframe.style.width = '80mm'
+  iframe.style.height = '600px'
   iframe.style.border = '0'
-  iframe.style.visibility = 'hidden'
+  iframe.style.opacity = '0.01'
+  iframe.style.pointerEvents = 'none'
   document.body.appendChild(iframe)
 
   const doc = iframe.contentWindow?.document
@@ -41,32 +48,28 @@ export function printThermalReceipt(elementId: string = 'thermal-print-target'):
     return
   }
 
-  // Grab active stylesheets so thermal receipt styles are carried over
-  const styleElements = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]'))
-    .map((el) => el.outerHTML)
-    .join('\n')
-
   doc.open()
   doc.write(`
     <!DOCTYPE html>
     <html>
       <head>
         <title>Receipt - 80mm Thermal</title>
-        ${styleElements}
         <style>
           @page {
             size: 80mm auto;
-            margin: 0mm;
+            margin: 0mm !important;
           }
           * {
             box-sizing: border-box !important;
+            margin: 0;
+            padding: 0;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
           html, body {
-            width: 100% !important;
-            max-width: 100% !important;
-            min-width: 100% !important;
+            width: 80mm !important;
+            max-width: 80mm !important;
+            min-width: 80mm !important;
             margin: 0 !important;
             padding: 0 !important;
             background: #ffffff !important;
@@ -78,11 +81,11 @@ export function printThermalReceipt(elementId: string = 'thermal-print-target'):
           .thermal-print-wrapper,
           .thermal-paper-80mm,
           .pro-receipt-paper {
-            width: 100% !important;
-            max-width: 100% !important;
-            min-width: 100% !important;
-            margin: 0 !important;
-            padding: 2mm 3mm 12mm 3mm !important;
+            width: 76mm !important;
+            max-width: 76mm !important;
+            min-width: 76mm !important;
+            margin: 0 auto !important;
+            padding: 2mm 2mm 10mm 2mm !important;
             box-sizing: border-box !important;
             background: #ffffff !important;
             color: #000000 !important;

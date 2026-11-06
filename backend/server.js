@@ -60,7 +60,7 @@ function validateDateRange(startDate, endDate) {
 }
 
 // ============================================================
-// HEALTH CHECK
+// HEALTH CHECK & SYSTEM VERSION / UPDATES
 // ============================================================
 app.get('/api/health', (req, res) => {
   res.json({
@@ -70,6 +70,120 @@ app.get('/api/health', (req, res) => {
         ? 'connected'
         : 'disconnected'
   });
+});
+
+const https = require('https');
+
+function compareVersions(current, latest) {
+  const parse = (v) => String(v || '').replace(/^v/i, '').split('.').map(n => parseInt(n, 10) || 0);
+  const [cMaj = 0, cMin = 0, cPat = 0] = parse(current);
+  const [lMaj = 0, lMin = 0, lPat = 0] = parse(latest);
+  if (lMaj > cMaj) return 1;
+  if (lMaj < cMaj) return -1;
+  if (lMin > cMin) return 1;
+  if (lMin < cMin) return -1;
+  if (lPat > cPat) return 1;
+  if (lPat < cPat) return -1;
+  return 0;
+}
+
+app.get('/api/system/version', (req, res) => {
+  res.json({
+    name: 'Catamaran POS',
+    version: '1.0.0',
+    repository: 'JayalathGUD/Catamaran-POS',
+    releasesUrl: 'https://github.com/JayalathGUD/Catamaran-POS/releases'
+  });
+});
+
+app.get('/api/system/check-update', (req, res) => {
+  const currentVersion = '1.0.0';
+  const isSimulated = req.query.simulate === 'true';
+
+  if (isSimulated) {
+    const simVersion = req.query.version || '1.1.0';
+    return res.json({
+      updateAvailable: true,
+      currentVersion,
+      latestVersion: simVersion,
+      releaseName: `Catamaran POS v${simVersion} (Latest Official Release)`,
+      releaseNotes: 'Includes high-speed 80mm thermal receipt printing, live customer tab syncing, and surfboard custom rate controls.',
+      releaseUrl: 'https://github.com/JayalathGUD/Catamaran-POS/releases',
+      publishedAt: new Date().toISOString(),
+      isSimulated: true
+    });
+  }
+
+  const options = {
+    hostname: 'api.github.com',
+    path: '/repos/JayalathGUD/Catamaran-POS/releases/latest',
+    method: 'GET',
+    headers: {
+      'User-Agent': 'Catamaran-POS-Client',
+      'Accept': 'application/vnd.github.v3+json'
+    },
+    timeout: 5000
+  };
+
+  const ghReq = https.request(options, (ghRes) => {
+    let raw = '';
+    ghRes.on('data', (chunk) => { raw += chunk; });
+    ghRes.on('end', () => {
+      try {
+        if (ghRes.statusCode === 200) {
+          const data = JSON.parse(raw);
+          const latestTag = data.tag_name || data.name || '';
+          const isNewer = compareVersions(currentVersion, latestTag) > 0;
+          return res.json({
+            updateAvailable: isNewer,
+            currentVersion,
+            latestVersion: latestTag.replace(/^v/i, ''),
+            releaseName: data.name || latestTag,
+            releaseNotes: data.body || '',
+            releaseUrl: data.html_url || 'https://github.com/JayalathGUD/Catamaran-POS/releases',
+            publishedAt: data.published_at || new Date().toISOString()
+          });
+        } else {
+          return res.json({
+            updateAvailable: false,
+            currentVersion,
+            latestVersion: currentVersion,
+            message: ghRes.statusCode === 404
+              ? 'No GitHub releases found yet for JayalathGUD/Catamaran-POS'
+              : `GitHub check returned status ${ghRes.statusCode}`
+          });
+        }
+      } catch {
+        return res.json({
+          updateAvailable: false,
+          currentVersion,
+          latestVersion: currentVersion,
+          error: 'Failed to parse GitHub response'
+        });
+      }
+    });
+  });
+
+  ghReq.on('timeout', () => {
+    ghReq.destroy();
+    return res.json({
+      updateAvailable: false,
+      currentVersion,
+      latestVersion: currentVersion,
+      message: 'Update check timed out'
+    });
+  });
+
+  ghReq.on('error', (err) => {
+    return res.json({
+      updateAvailable: false,
+      currentVersion,
+      latestVersion: currentVersion,
+      message: 'Unable to reach update server: ' + (err?.message || 'Network error')
+    });
+  });
+
+  ghReq.end();
 });
 
 // ============================================================
@@ -507,19 +621,56 @@ app.patch('/api/menu/:id/status', async (req, res) => {
 // Helper to recalculate live elapsed time and charge for any open bill with an active rental
 async function syncLiveRentalTimeOnBill(bill) {
   if (!bill || bill.status !== 'Open') return bill;
-  if (!bill.rentalId) return bill;
 
   try {
-    const rental = await Rental.findById(bill.rentalId);
-    if (!rental) return bill;
+    let rental = null;
+    // 1. Direct rentalId link
+    if (bill.rentalId) {
+      rental = await Rental.findById(bill.rentalId);
+    }
+    // 2. Link by billId on Rental model
+    if (!rental) {
+      rental = await Rental.findOne({ billId: bill._id, status: 'Active' });
+      if (rental) {
+        bill.rentalId = rental._id;
+      }
+    }
+    // 3. Case-insensitive link by customerName
+    if (!rental && bill.customerName) {
+      rental = await Rental.findOne({
+        customerName: { $regex: new RegExp('^' + bill.customerName.trim() + '$', 'i') },
+        status: 'Active'
+      });
+      if (rental) {
+        bill.rentalId = rental._id;
+      }
+    }
+    // 4. Link by boardName mentioned in rental line item
+    if (!rental && bill.items && Array.isArray(bill.items)) {
+      const rLine = bill.items.find(
+        (it) => it.code === 'RENTAL' || it.name.toLowerCase().includes('surfboard')
+      );
+      if (rLine) {
+        const boardMatch = rLine.name.match(/Board\s*(\d+|[A-Za-z0-9]+)/i);
+        if (boardMatch) {
+          rental = await Rental.findOne({
+            boardName: { $regex: new RegExp(boardMatch[0], 'i') },
+            status: 'Active'
+          });
+          if (rental) {
+            bill.rentalId = rental._id;
+          }
+        }
+      }
+    }
 
-    if (rental.status === 'Active') {
+    if (rental && rental.status === 'Active') {
       const now = Date.now();
       const startMs = Number(rental.startTimestamp) || now;
       const elapsedMinutes = Math.max(1, Math.round((now - startMs) / (60 * 1000)));
       const hrs = Math.floor(elapsedMinutes / 60);
       const mins = elapsedMinutes % 60;
-      const durationDisplay = hrs > 0 ? `${hrs} hr ${mins > 0 ? mins + ' min' : ''}`.trim() : `${mins} mins`;
+      const durationDisplay = hrs > 0 ? (hrs + ' hr ' + (mins > 0 ? mins + ' min' : '')).trim() : (mins + ' mins');
 
       const agreedRate = Number(rental.agreedHourlyRate) || Number(rental.hourlyRate) || 1000;
 
@@ -529,8 +680,10 @@ async function syncLiveRentalTimeOnBill(bill) {
         liveCharge = agreedRate + Math.round(((elapsedMinutes - 60) / 60) * agreedRate);
       }
 
-      const rentalItemName = `Surfboard Rental - ${rental.boardName} (${durationDisplay} · Started: ${rental.startTime})`;
-      const rentalItemIdx = bill.items.findIndex((it) => it.code === 'RENTAL');
+      const rentalItemName = 'Surfboard Rental - ' + rental.boardName + ' (' + durationDisplay + ' · Started: ' + rental.startTime + ')';
+      const rentalItemIdx = bill.items.findIndex(
+        (it) => it.code === 'RENTAL' || it.name.toLowerCase().includes('surfboard')
+      );
 
       if (rentalItemIdx >= 0) {
         const item = bill.items[rentalItemIdx];
@@ -544,7 +697,7 @@ async function syncLiveRentalTimeOnBill(bill) {
         const finalPrice = isCustom && customAmt !== null ? customAmt : liveCharge;
         const customSuffix = isCustom && customAmt !== null ? ' [Custom Rate]' : '';
 
-        item.name = `Surfboard Rental - ${rental.boardName} (${durationDisplay} · Started: ${rental.startTime})${customSuffix}`;
+        item.name = 'Surfboard Rental - ' + rental.boardName + ' (' + durationDisplay + ' · Started: ' + rental.startTime + ')' + customSuffix;
         item.unitPrice = finalPrice;
         item.total = finalPrice;
         item.duration = durationDisplay;
@@ -567,6 +720,41 @@ async function syncLiveRentalTimeOnBill(bill) {
       bill.balanceDue = Math.max(0, bill.total - (bill.totalPaid || 0));
 
       await bill.save();
+    } else {
+      // Fallback: If no Rental doc exists but bill has a surfboard item with startTime / addedAt
+      const rIdx = bill.items.findIndex(
+        (it) => it.code === 'RENTAL' || it.name.toLowerCase().includes('surfboard')
+      );
+      if (rIdx >= 0) {
+        const item = bill.items[rIdx];
+        if (!item.isCustomPrice && (item.startTime || item.addedAt)) {
+          let startMs = item.addedAt ? new Date(item.addedAt).getTime() : null;
+          if (!startMs && item.startTime) {
+            const todayStr = bill.date || new Date().toISOString().split('T')[0];
+            const parsed = Date.parse(todayStr + ' ' + item.startTime);
+            if (!isNaN(parsed)) startMs = parsed;
+          }
+          if (startMs && !isNaN(startMs)) {
+            const now = Date.now();
+            const elapsedMinutes = Math.max(1, Math.round((now - startMs) / (60 * 1000)));
+            const hrs = Math.floor(elapsedMinutes / 60);
+            const mins = elapsedMinutes % 60;
+            const durationDisplay = hrs > 0 ? (hrs + ' hr ' + (mins > 0 ? mins + ' min' : '')).trim() : (mins + ' mins');
+            const baseRate = item.unitPrice || 1000;
+            let liveCharge = baseRate;
+            if (elapsedMinutes > 60) {
+              liveCharge = baseRate + Math.round(((elapsedMinutes - 60) / 60) * baseRate);
+            }
+            item.duration = durationDisplay;
+            item.unitPrice = liveCharge;
+            item.total = liveCharge;
+            bill.subtotal = bill.items.reduce((sum, it) => sum + it.total, 0);
+            bill.total = Math.max(0, bill.subtotal - (bill.discount || 0)) + (bill.serviceCharge || 0);
+            bill.balanceDue = Math.max(0, bill.total - (bill.totalPaid || 0));
+            await bill.save();
+          }
+        }
+      }
     }
   } catch (err) {
     console.warn('syncLiveRentalTimeOnBill warning:', err.message);

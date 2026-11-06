@@ -14,6 +14,7 @@ import { SurfboardRentals } from './components/SurfboardRentals'
 import { SurfLessons } from './components/SurfLessons'
 import { Settings } from './components/Settings'
 import { Topbar } from './components/Topbar'
+import { SoftwareUpdateBanner } from './components/SoftwareUpdateBanner'
 import { getInventoryItems, getOpenBills, getRentals, getSurfboards } from './services/api'
 import { ActiveRental, CompletedRental, InventoryItem, NavigationPage, PosCartItem, Surfboard } from './types'
 
@@ -130,6 +131,9 @@ function App(): React.JSX.Element {
 
       {/* Main App Content Area */}
       <div className="main-layout">
+        {/* Software Update Alert Banner (Top Notification) */}
+        <SoftwareUpdateBanner onNavigate={setCurrentPage} />
+
         {/* Top Header Bar with Breadcrumb and System Status indicator */}
         <Topbar
           currentPage={currentPage}

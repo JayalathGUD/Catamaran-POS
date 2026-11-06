@@ -483,7 +483,7 @@ export const ProfessionalReceipt: React.FC<ProfessionalReceiptProps> = ({
                         </div>
                         {safeChange > 0 && (
                           <div className="t-flex t-tender-row t-highlight-change" style={{ marginTop: '3px' }}>
-                            <span className="t-tender-lbl">CHANGE RETURNED (ඉතිරි මුදල):</span>
+                            <span className="t-tender-lbl">CHANGE RETURNED:</span>
                             <strong className="t-tender-val t-change-val">{formatLKR(safeChange)}</strong>
                           </div>
                         )}
@@ -495,11 +495,11 @@ export const ProfessionalReceipt: React.FC<ProfessionalReceiptProps> = ({
                     ) : isCash ? (
                       <>
                         <div className="t-flex t-tender-row t-highlight-tendered">
-                          <span className="t-tender-lbl">CUSTOMER TENDERED (දෙන මුදල):</span>
+                          <span className="t-tender-lbl">CUSTOMER TENDERED:</span>
                           <strong className="t-tender-val">{formatLKR(safeTendered)}</strong>
                         </div>
                         <div className="t-flex t-tender-row t-highlight-change">
-                          <span className="t-tender-lbl">CHANGE RETURNED (ඉතිරි මුදල):</span>
+                          <span className="t-tender-lbl">CHANGE RETURNED:</span>
                           <strong className="t-tender-val t-change-val">{formatLKR(safeChange)}</strong>
                         </div>
                       </>
@@ -534,7 +534,6 @@ export const ProfessionalReceipt: React.FC<ProfessionalReceiptProps> = ({
 
                   <span className="pro-thankyou-msg">THANK YOU FOR DINING WITH US!</span>
                   <span className="pro-vibe">FRESH SEAFOOD &middot; COCKTAILS &middot; GOOD VIBES</span>
-                  <span className="pro-ig">Follow Us on Instagram: {appSettings.instagramHandle || '@catamaranbeachrestaurant'}</span>
                   {displayWebsite && (
                     <span className="pro-web" style={{ display: 'block', wordBreak: 'break-all', fontSize: '9px', fontWeight: 600 }}>
                       {displayWebsite}
@@ -542,7 +541,7 @@ export const ProfessionalReceipt: React.FC<ProfessionalReceiptProps> = ({
                   )}
                   <span className="pro-visit-again">Please Visit Us Again</span>
 
-                  <span className="t-paper-cut">[ - - - - THANK YOU - - - - ]</span>
+                  <span className="t-paper-cut">[ - - - - - - THANK YOU - - - - - - ]</span>
 
                   {/* Software Credit */}
                   <div className="pro-software-credit">
