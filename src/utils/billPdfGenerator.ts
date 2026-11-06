@@ -128,10 +128,20 @@ export async function downloadBillPDF(bill: BillPdfPayload | HistoryBill): Promi
   // 4. Line Items
   for (const item of items) {
     const qtyText = `${item.quantity}x `
-    const nameText = item.name.length > 20 ? item.name.substring(0, 19) + '..' : item.name
-    doc.text(`${qtyText}${nameText}`, marginLeft, y)
-    doc.text(formatLKR(item.total).replace('Rs. ', ''), marginRight, y, { align: 'right' })
-    y += 3.5
+    const maxChars = 26
+    if (item.name.length <= maxChars) {
+      doc.text(`${qtyText}${item.name}`, marginLeft, y)
+      doc.text(formatLKR(item.total).replace('Rs. ', ''), marginRight, y, { align: 'right' })
+      y += 3.5
+    } else {
+      const line1 = item.name.substring(0, maxChars)
+      const line2 = item.name.substring(maxChars)
+      doc.text(`${qtyText}${line1}`, marginLeft, y)
+      doc.text(formatLKR(item.total).replace('Rs. ', ''), marginRight, y, { align: 'right' })
+      y += 3
+      doc.text(`   ${line2}`, marginLeft, y)
+      y += 3.5
+    }
   }
 
   // 5. Divider & Totals

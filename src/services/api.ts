@@ -81,6 +81,9 @@ function formatBillResponse(b: any): HistoryBill {
           unitPrice: Number(i.unitPrice || 0),
           total: Number(i.total || 0),
           code: i.code ? String(i.code) : undefined,
+          duration: i.duration ? String(i.duration) : undefined,
+          startTime: i.startTime ? String(i.startTime) : undefined,
+          endTime: i.endTime ? String(i.endTime) : undefined,
           addedAt: i.addedAt ? String(i.addedAt) : undefined
         }))
       : [],

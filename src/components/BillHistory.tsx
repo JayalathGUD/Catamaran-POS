@@ -753,7 +753,7 @@ export const BillHistory: React.FC<BillHistoryProps> = ({ onNavigate }) => {
                             type="button"
                             className="btn-table-action btn-action-refund"
                             onClick={() => setRefundCandidate(bill)}
-                            title="Simulate refund / cancellation"
+                            title="Process refund or cancellation for this settled bill"
                           >
                             <IconRotateCcw size={12} />
                             <span>Refund</span>
@@ -763,10 +763,10 @@ export const BillHistory: React.FC<BillHistoryProps> = ({ onNavigate }) => {
                             type="button"
                             className="btn-table-action btn-action-disabled"
                             disabled
-                            title={bill.status === 'Refunded' ? 'Bill is already refunded' : 'Bill cancelled / archived'}
+                            title={bill.status === 'Refunded' ? 'This bill has already been refunded' : 'This bill has been cancelled'}
                           >
-                            <IconRotateCcw size={12} />
-                            <span>{bill.status === 'Refunded' ? 'Refunded' : 'Archived'}</span>
+                            {bill.status === 'Refunded' ? <IconRotateCcw size={12} /> : <IconX size={12} />}
+                            <span>{bill.status === 'Refunded' ? 'Refunded' : 'Cancelled'}</span>
                           </button>
                         )}
                       </div>

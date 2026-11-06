@@ -504,7 +504,67 @@ app.patch('/api/menu/:id/status', async (req, res) => {
 // ============================================================
 // BILLS & POS SALES API
 // ============================================================
-// Get all bills with optional date and status filters
+// Helper to recalculate live elapsed time and charge for any open bill with an active rental
+async function syncLiveRentalTimeOnBill(bill) {
+  if (!bill || bill.status !== 'Open') return bill;
+  if (!bill.rentalId) return bill;
+
+  try {
+    const rental = await Rental.findById(bill.rentalId);
+    if (!rental) return bill;
+
+    if (rental.status === 'Active') {
+      const now = Date.now();
+      const startMs = Number(rental.startTimestamp) || now;
+      const elapsedMinutes = Math.max(1, Math.round((now - startMs) / (60 * 1000)));
+      const hrs = Math.floor(elapsedMinutes / 60);
+      const mins = elapsedMinutes % 60;
+      const durationDisplay = hrs > 0 ? `${hrs} hr ${mins > 0 ? mins + ' min' : ''}`.trim() : `${mins} mins`;
+
+      const agreedRate = Number(rental.agreedHourlyRate) || Number(rental.hourlyRate) || 1000;
+
+      // Minimum 1-hour charge applies. Beyond 60 minutes prorated:
+      let liveCharge = agreedRate;
+      if (elapsedMinutes > 60) {
+        liveCharge = agreedRate + Math.round(((elapsedMinutes - 60) / 60) * agreedRate);
+      }
+
+      const rentalItemName = `Surfboard Rental - ${rental.boardName} (${durationDisplay} · Started: ${rental.startTime})`;
+      const rentalItemIdx = bill.items.findIndex((it) => it.code === 'RENTAL');
+
+      if (rentalItemIdx >= 0) {
+        bill.items[rentalItemIdx].name = rentalItemName;
+        bill.items[rentalItemIdx].unitPrice = liveCharge;
+        bill.items[rentalItemIdx].total = liveCharge;
+        bill.items[rentalItemIdx].duration = durationDisplay;
+        bill.items[rentalItemIdx].startTime = rental.startTime;
+      } else {
+        bill.items.unshift({
+          name: rentalItemName,
+          quantity: 1,
+          unitPrice: liveCharge,
+          total: liveCharge,
+          code: 'RENTAL',
+          duration: durationDisplay,
+          startTime: rental.startTime,
+          addedAt: new Date().toISOString()
+        });
+      }
+
+      bill.subtotal = bill.items.reduce((sum, it) => sum + it.total, 0);
+      bill.total = Math.max(0, bill.subtotal - (bill.discount || 0)) + (bill.serviceCharge || 0);
+      bill.balanceDue = Math.max(0, bill.total - (bill.totalPaid || 0));
+
+      await bill.save();
+    }
+  } catch (err) {
+    console.warn('syncLiveRentalTimeOnBill warning:', err.message);
+  }
+
+  return bill;
+}
+
+// Get all bills with optional date and status filters (with live rental time calculation)
 app.get('/api/bills', async (req, res) => {
   try {
     const { startDate, endDate, status } = req.query;
@@ -524,23 +584,25 @@ app.get('/api/bills', async (req, res) => {
     }
 
     const bills = await Bill.find(filter).sort({ createdAt: -1 });
-    res.json(bills);
+    const syncedBills = await Promise.all(bills.map((b) => syncLiveRentalTimeOnBill(b)));
+    res.json(syncedBills);
   } catch (error) {
     console.error('Bills query error:', error.message);
     res.status(500).json({ message: 'Could not retrieve bills' });
   }
 });
 
-// Get single bill by ID
+// Get single bill by ID (with live rental time calculation)
 app.get('/api/bills/:id', async (req, res) => {
   try {
     if (!mongoose.isValidObjectId(req.params.id)) {
       return res.status(400).json({ message: 'Invalid bill ID' });
     }
-    const bill = await Bill.findById(req.params.id);
+    let bill = await Bill.findById(req.params.id);
     if (!bill) {
       return res.status(404).json({ message: 'Bill not found' });
     }
+    bill = await syncLiveRentalTimeOnBill(bill);
     res.json(bill);
   } catch (error) {
     console.error('Single bill query error:', error.message);
@@ -1334,6 +1396,9 @@ app.patch('/api/bills/:id/items', async (req, res) => {
         unitPrice: line.unitPrice,
         total: line.quantity * line.unitPrice,
         code: line.code ? String(line.code).trim().toUpperCase() : '',
+        duration: line.duration || '',
+        startTime: line.startTime || '',
+        endTime: line.endTime || '',
         addedAt: line.addedAt || new Date().toISOString()
       }));
 
@@ -1470,18 +1535,58 @@ app.post('/api/bills/:id/pay', async (req, res) => {
         );
       }
 
-      // If bill was linked to a Rental, sync Rental payment status
+      // If bill was linked to a Rental, finalize rental return if active and sync payment status
       if (bill.rentalId) {
-        await Rental.findByIdAndUpdate(
-          bill.rentalId,
-          {
-            paymentStatus: billPaymentStatus,
-            totalPaid: billTotalPaid,
-            balanceDue: billBalanceDue,
-            paymentMethod: bill.paymentMethod
-          },
-          sessionOpt
-        );
+        const rental = await Rental.findById(bill.rentalId, null, sessionOpt);
+        if (rental) {
+          if (rental.status === 'Active') {
+            const slNow = getSriLankaDateTime();
+            const now = Date.now();
+            const startMs = Number(rental.startTimestamp) || now;
+            const elapsedMinutes = Math.max(1, Math.round((now - startMs) / (60 * 1000)));
+            const hrs = Math.floor(elapsedMinutes / 60);
+            const mins = elapsedMinutes % 60;
+            const durationDisplay = hrs > 0 ? `${hrs} hr ${mins > 0 ? mins + ' min' : ''}`.trim() : `${mins} mins`;
+
+            rental.status = 'Completed';
+            rental.returnDate = slNow.dateStr;
+            rental.returnTime = slNow.timeStr;
+            rental.returnTimestamp = slNow.timestamp;
+            rental.durationMinutes = elapsedMinutes;
+            rental.durationDisplay = durationDisplay;
+            rental.returnedAt = slNow.isoStr;
+
+            // Release board back to Available fleet
+            await Surfboard.findByIdAndUpdate(
+              rental.boardId,
+              {
+                status: 'Available',
+                currentRentalId: '',
+                currentCustomer: '',
+                rentalStartTime: '',
+                lastReturnedTime: `${rental.returnDate} ${rental.returnTime}`
+              },
+              sessionOpt
+            );
+
+            // Update rental line item on bill with exact calculated time
+            const rentalItem = bill.items.find((it) => it.code === 'RENTAL');
+            if (rentalItem) {
+              rentalItem.name = `Surfboard Rental - ${rental.boardName} (${durationDisplay} | ${rental.startTime} - ${slNow.timeStr})`;
+              rentalItem.duration = durationDisplay;
+              rentalItem.startTime = rental.startTime;
+              rentalItem.endTime = slNow.timeStr;
+              await bill.save(sessionOpt);
+            }
+          }
+
+          rental.paymentStatus = billPaymentStatus;
+          rental.totalPaid = billTotalPaid;
+          rental.balanceDue = billBalanceDue;
+          rental.paymentMethod = bill.paymentMethod;
+          await rental.save(sessionOpt);
+        }
+      
       } else if (bill.customerName && bill.items.some((it) => it.code === 'RENTAL')) {
         await Rental.updateMany(
           { customerName: bill.customerName, status: { $in: ['Active', 'Completed'] } },
@@ -1935,11 +2040,13 @@ app.post('/api/rentals/start', async (req, res) => {
       paymentMethod: 'Cash',
       items: [
         {
-          name: `Surfboard Rental - ${boardName}`,
+          name: `Surfboard Rental - ${boardName} (Started: ${finalStartTime})`,
           quantity: 1,
           unitPrice: finalAgreedRate,
           total: finalAgreedRate,
           code: 'RENTAL',
+          duration: '1 hr (Initial)',
+          startTime: finalStartTime,
           addedAt: new Date().toISOString()
         }
       ],
@@ -2159,7 +2266,8 @@ app.post('/api/rentals/return/:id', async (req, res) => {
           );
         }
 
-        const rentalItemName = `Surfboard Rental - ${rental.boardName} (${rental.durationDisplay || 'Rental'})`;
+        const timeRange = (rental.startTime && rental.returnTime) ? ` | ${rental.startTime} - ${rental.returnTime}` : (rental.startTime ? ` | Start: ${rental.startTime}` : '');
+        const rentalItemName = `Surfboard Rental - ${rental.boardName} (${rental.durationDisplay || 'Rental'}${timeRange})`;
         const rentalItemPrice = rental.actualRentalCharge || finalCharged;
 
         if (linkedBill) {
@@ -2169,6 +2277,9 @@ app.post('/api/rentals/return/:id', async (req, res) => {
             linkedBill.items[existingRentalIdx].name = rentalItemName;
             linkedBill.items[existingRentalIdx].unitPrice = rentalItemPrice;
             linkedBill.items[existingRentalIdx].total = rentalItemPrice;
+            linkedBill.items[existingRentalIdx].duration = rental.durationDisplay || '';
+            linkedBill.items[existingRentalIdx].startTime = rental.startTime || '';
+            linkedBill.items[existingRentalIdx].endTime = rental.returnTime || '';
           } else {
             linkedBill.items.unshift({
               name: rentalItemName,
@@ -2176,6 +2287,9 @@ app.post('/api/rentals/return/:id', async (req, res) => {
               unitPrice: rentalItemPrice,
               total: rentalItemPrice,
               code: 'RENTAL',
+              duration: rental.durationDisplay || '',
+              startTime: rental.startTime || '',
+              endTime: rental.returnTime || '',
               addedAt: new Date().toISOString()
             });
           }
@@ -2230,7 +2344,10 @@ app.post('/api/rentals/return/:id', async (req, res) => {
               quantity: 1,
               unitPrice: rentalItemPrice,
               total: rentalItemPrice,
-              code: 'RENTAL'
+              code: 'RENTAL',
+              duration: rental.durationDisplay || '',
+              startTime: rental.startTime || '',
+              endTime: rental.returnTime || ''
             }
           ];
           if (rental.damageFee > 0) {
@@ -4045,7 +4162,7 @@ app.post('/api/lessons/walkin', async (req, res) => {
           billNumberForLesson = `BILL-${year}-${String(bCount + 1 + bAttempts).padStart(4, '0')}`;
         }
 
-        const lessonItemName = `Surf Lesson - ${lessonType || 'Private'} (${validStudentCount} student${validStudentCount > 1 ? 's' : ''})`;
+        const lessonItemName = `Surf Lesson - ${lessonType || 'Private'} (${validStudentCount} student${validStudentCount > 1 ? 's' : ''} · ${durMinutes} mins | ${finalStartTime} - ${finalEndTime})`;
         const [openBill] = await Bill.create(
           [
             {
@@ -4063,6 +4180,9 @@ app.post('/api/lessons/walkin', async (req, res) => {
                   unitPrice: calcTotal,
                   total: calcTotal,
                   code: 'LESSON',
+                  duration: `${durMinutes} mins`,
+                  startTime: finalStartTime,
+                  endTime: finalEndTime,
                   addedAt: new Date().toISOString()
                 }
               ],

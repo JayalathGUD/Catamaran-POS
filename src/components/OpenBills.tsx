@@ -475,6 +475,12 @@ export const OpenBills: React.FC<OpenBillsProps> = ({
                             <td className="item-name-cell">
                               <span className="item-qty-tag">{item.quantity}×</span>
                               <span className="item-name-text">{item.name}</span>
+                              {item.duration && (
+                                <div style={{ fontSize: '10.5px', color: '#0369a1', fontWeight: 600, marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                  <span>⏱️ {item.duration}</span>
+                                  {item.startTime && <span style={{ opacity: 0.85 }}>· Started: {item.startTime}</span>}
+                                </div>
+                              )}
                               {item.code && <span className="item-code-tag">({item.code})</span>}
                             </td>
                             <td className="item-price-cell">

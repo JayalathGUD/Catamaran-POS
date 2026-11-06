@@ -335,7 +335,7 @@ export const PosBilling: React.FC<PosBillingProps> = ({
               product: {
                 id: `prod-active-${idx}`,
                 name: it.name,
-                category: 'Food',
+                category: it.code === 'LESSON' ? 'Surf Lessons' : it.code === 'RENTAL' ? 'Other Services' : 'Food',
                 price: it.unitPrice,
                 code: it.code || '',
                 stockTracking: Boolean(it.code && inventoryMap.has(it.code.toUpperCase()))
@@ -1572,25 +1572,31 @@ export const PosBilling: React.FC<PosBillingProps> = ({
 
                         <div className="cart-item-right">
                           {/* Tactile Quantity Stepper */}
-                          <div className="cart-stepper">
-                            <button
-                              type="button"
-                              className="stepper-btn"
-                              onClick={() => updateQuantity(item.product.id, -1)}
-                              aria-label="Decrease quantity"
-                            >
-                              <IconMinus size={12} />
-                            </button>
-                            <span className="stepper-count">{item.quantity}</span>
-                            <button
-                              type="button"
-                              className="stepper-btn"
-                              onClick={() => updateQuantity(item.product.id, 1)}
-                              aria-label="Increase quantity"
-                            >
-                              <IconPlus size={12} />
-                            </button>
-                          </div>
+                          {item.product.code === 'RENTAL' || item.product.code === 'LESSON' ? (
+                            <span style={{ fontSize: '11px', fontWeight: 700, padding: '3px 8px', borderRadius: '4px', background: '#e0f2fe', color: '#0369a1', border: '1px solid #bae6fd', whiteSpace: 'nowrap' }}>
+                              1 Session
+                            </span>
+                          ) : (
+                            <div className="cart-stepper">
+                              <button
+                                type="button"
+                                className="stepper-btn"
+                                onClick={() => updateQuantity(item.product.id, -1)}
+                                aria-label="Decrease quantity"
+                              >
+                                <IconMinus size={12} />
+                              </button>
+                              <span className="stepper-count">{item.quantity}</span>
+                              <button
+                                type="button"
+                                className="stepper-btn"
+                                onClick={() => updateQuantity(item.product.id, 1)}
+                                aria-label="Increase quantity"
+                              >
+                                <IconPlus size={12} />
+                              </button>
+                            </div>
+                          )}
 
                           {/* Line Total */}
                           <strong className="cart-item-total">{formatLKR(itemTotal)}</strong>

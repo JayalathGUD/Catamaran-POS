@@ -13,6 +13,9 @@ export interface ReceiptItem {
   unitPrice: number
   total: number
   code?: string
+  duration?: string
+  startTime?: string
+  endTime?: string
 }
 
 export interface ProfessionalReceiptProps {
@@ -413,6 +416,11 @@ export const ProfessionalReceipt: React.FC<ProfessionalReceiptProps> = ({
                       <tr key={item.id || idx}>
                         <td className="t-td-item">
                           <div className="t-item-name">{item.name}</div>
+                          {item.duration && (
+                            <div style={{ fontSize: '9px', color: '#0369a1', fontWeight: 700, marginTop: '1px' }}>
+                              ⏱️ Time: {item.duration} {item.startTime ? `(${item.startTime}${item.endTime ? ' - ' + item.endTime : ''})` : ''}
+                            </div>
+                          )}
                           {item.code && <div className="t-item-code">{item.code}</div>}
                         </td>
                         <td className="t-td-qty">{item.quantity}</td>

@@ -71,6 +71,9 @@ export interface BillItem {
   amountTendered?: number
   changeDue?: number
   code?: string
+  duration?: string
+  startTime?: string
+  endTime?: string
   addedAt?: string
 }
 

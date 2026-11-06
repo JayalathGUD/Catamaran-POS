@@ -4794,112 +4794,134 @@ textarea {
 }
 
 /* Actions in Table - Professional Unified Segmented Cluster */
+th.th-action,
+td.th-action {
+  text-align: right;
+  vertical-align: middle;
+  padding: 8px 16px !important;
+  white-space: nowrap;
+  width: 325px;
+  min-width: 325px;
+}
+
 .table-actions-cluster {
   display: inline-flex;
   align-items: center;
   justify-content: flex-end;
   gap: 5px;
-  background: #f8fafc;
+  background-color: #f1f5f9;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
-  padding: 3px 5px;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-  transition: all 0.15s ease;
+  padding: 3px 4px;
+  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04);
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 tr:hover .table-actions-cluster {
-  background: #ffffff;
+  background-color: #ffffff;
   border-color: #cbd5e1;
-  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 2px 8px -2px rgba(15, 23, 42, 0.12), 0 1px 3px -1px rgba(15, 23, 42, 0.06);
 }
 
-.btn-table-action {
+.table-actions-cluster .btn-table-action {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 4.5px;
-  height: 27px;
-  padding: 0 9px;
+  gap: 5px;
+  height: 28px;
+  padding: 0 10px;
   border-radius: 6px;
   font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.2px;
+  letter-spacing: 0.02em;
   border: 1px solid transparent;
-  background-color: #ffffff;
-  color: #334155;
   cursor: pointer;
-  transition: all 0.14s cubic-bezier(0.4, 0, 0.2, 1);
   white-space: nowrap;
   user-select: none;
+  box-sizing: border-box;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* View Details Action */
-.btn-table-action.btn-action-view,
-.btn-table-action:not([class*="btn-action-"]) {
-  background-color: #ffffff;
-  color: #475569;
-  border-color: #e2e8f0;
+.table-actions-cluster .btn-table-action:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+/* 1. View Details Action - Modern Slate Neutral */
+.table-actions-cluster .btn-action-view,
+.table-actions-cluster .btn-table-action:not([class*="btn-action-"]) {
+  background-color: #ffffff !important;
+  color: #334155 !important;
+  border-color: #e2e8f0 !important;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
 }
-.btn-table-action.btn-action-view:hover,
-.btn-table-action:not([class*="btn-action-"]):hover {
+
+.table-actions-cluster .btn-action-view:hover,
+.table-actions-cluster .btn-table-action:not([class*="btn-action-"]):hover {
   background-color: #0f172a !important;
   color: #ffffff !important;
   border-color: #0f172a !important;
-  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.22);
+  box-shadow: 0 3px 8px rgba(15, 23, 42, 0.22);
   transform: translateY(-1px);
 }
 
-/* Reprint Receipt Action */
-.btn-table-action.btn-action-reprint {
-  background-color: #f0fdfa;
-  color: #0f766e;
-  border-color: #ccfbf1;
+/* 2. Reprint Receipt Action - Catamaran Coastal Emerald/Teal */
+.table-actions-cluster .btn-action-reprint {
+  background-color: #ffffff !important;
+  color: #0f766e !important;
+  border-color: #ccfbf1 !important;
+  box-shadow: 0 1px 2px rgba(13, 148, 136, 0.04);
 }
-.btn-table-action.btn-action-reprint:hover {
+
+.table-actions-cluster .btn-action-reprint:hover {
   background-color: #0d9488 !important;
   color: #ffffff !important;
   border-color: #0d9488 !important;
-  box-shadow: 0 2px 6px rgba(13, 148, 136, 0.3);
+  box-shadow: 0 3px 8px rgba(13, 148, 136, 0.28);
   transform: translateY(-1px);
 }
 
-/* PDF Invoice Action */
-.btn-table-action.btn-action-download {
-  background-color: #f0f9ff;
-  color: #0284c7;
-  border-color: #bae6fd;
+/* 3. PDF Invoice Action - Ocean Blue */
+.table-actions-cluster .btn-action-download {
+  background-color: #ffffff !important;
+  color: #0284c7 !important;
+  border-color: #bae6fd !important;
+  box-shadow: 0 1px 2px rgba(2, 132, 199, 0.04);
 }
-.btn-table-action.btn-action-download:hover {
+
+.table-actions-cluster .btn-action-download:hover {
   background-color: #0284c7 !important;
   color: #ffffff !important;
   border-color: #0284c7 !important;
-  box-shadow: 0 2px 6px rgba(2, 132, 199, 0.3);
+  box-shadow: 0 3px 8px rgba(2, 132, 199, 0.28);
   transform: translateY(-1px);
 }
 
-/* Refund Action */
-.btn-table-action.btn-action-refund {
-  background-color: #fff1f2;
-  color: #e11d48;
-  border-color: #fecdd3;
+/* 4. Refund Action - Coral Rose */
+.table-actions-cluster .btn-action-refund {
+  min-width: 80px;
+  background-color: #ffffff !important;
+  color: #e11d48 !important;
+  border-color: #fecdd3 !important;
+  box-shadow: 0 1px 2px rgba(225, 29, 72, 0.04);
 }
-.btn-table-action.btn-action-refund:hover {
+
+.table-actions-cluster .btn-action-refund:hover {
   background-color: #e11d48 !important;
   color: #ffffff !important;
   border-color: #e11d48 !important;
-  box-shadow: 0 2px 6px rgba(225, 29, 72, 0.3);
+  box-shadow: 0 3px 8px rgba(225, 29, 72, 0.28);
   transform: translateY(-1px);
 }
 
-/* Disabled / Archived State (Maintains exact grid symmetry) */
-.btn-table-action.btn-action-disabled {
+/* 5. Disabled / Refunded / Cancelled Slot (Maintains exact symmetry & grid alignment) */
+.table-actions-cluster .btn-action-disabled {
+  min-width: 80px;
   background-color: #f8fafc !important;
   color: #94a3b8 !important;
-  border-color: #e2e8f0 !important;
+  border-color: #cbd5e1 !important;
   border-style: dashed !important;
   cursor: not-allowed !important;
-  opacity: 0.8;
+  opacity: 0.9;
   box-shadow: none !important;
   transform: none !important;
 }
@@ -4908,14 +4930,16 @@ tr:hover .table-actions-cluster {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: 27px;
-  padding: 0 9px;
+  height: 28px;
+  min-width: 80px;
+  padding: 0 10px;
   border-radius: 6px;
   font-size: 11px;
-  font-weight: 500;
+  font-weight: 600;
   color: #94a3b8;
   background-color: #f8fafc;
-  border: 1px dashed #e2e8f0;
+  border: 1px dashed #cbd5e1;
+  user-select: none;
 }
 
 /* Empty State */
@@ -7970,24 +7994,28 @@ tr:hover .table-actions-cluster {
   color: #047857;
 }
 
-.btn-action-reprint {
+.rentals-table-wrap .btn-action-reprint,
+.surf-fleet-table .btn-action-reprint {
   background-color: #f8fafc;
   color: var(--text-secondary);
   border-color: var(--border-subtle);
 }
 
-.btn-action-reprint:hover {
+.rentals-table-wrap .btn-action-reprint:hover,
+.surf-fleet-table .btn-action-reprint:hover {
   background-color: #f1f5f9;
   color: var(--text-primary);
 }
 
-.btn-action-download {
+.rentals-table-wrap .btn-action-download,
+.surf-fleet-table .btn-action-download {
   background-color: #f0f9ff;
   color: #0284c7;
   border-color: #bae6fd;
 }
 
-.btn-action-download:hover {
+.rentals-table-wrap .btn-action-download:hover,
+.surf-fleet-table .btn-action-download:hover {
   background-color: #e0f2fe;
   color: #0369a1;
   border-color: #7dd3fc;

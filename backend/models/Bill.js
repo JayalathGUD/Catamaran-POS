@@ -7,6 +7,9 @@ const billItemSchema = new mongoose.Schema(
     unitPrice: { type: Number, required: true, min: 0 },
     total: { type: Number, required: true, min: 0 },
     code: { type: String, default: '' },
+    duration: { type: String, default: '' },
+    startTime: { type: String, default: '' },
+    endTime: { type: String, default: '' },
     addedAt: { type: String, default: () => new Date().toISOString() }
   },
   { _id: false }
