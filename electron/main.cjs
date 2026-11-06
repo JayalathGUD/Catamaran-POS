@@ -16,11 +16,21 @@ function startBackend() {
     const serverPath = path.join(app.getAppPath(), 'backend', 'server.js');
     console.log('[Electron] Launching embedded backend server:', serverPath);
     backendProcess = fork(serverPath, [], {
-      env: { ...process.env, PORT: '5000' },
+      env: {
+        ...process.env,
+        PORT: '5000',
+        MONGODB_URI:
+          process.env.MONGODB_URI ||
+          'mongodb+srv://catamaran_app_user:CatamaranPosSystem@cluster0.xopp0.mongodb.net/catamaran_pos?retryWrites=true&w=majority',
+        ELECTRON_RUN_AS_NODE: '1'
+      },
       stdio: 'inherit'
     });
     backendProcess.on('error', (err) => {
       console.error('[Electron] Backend process error:', err);
+    });
+    backendProcess.on('exit', (code, signal) => {
+      console.log(`[Electron] Backend process exited with code ${code}, signal ${signal}`);
     });
   } catch (err) {
     console.error('[Electron] Failed to start backend server:', err);

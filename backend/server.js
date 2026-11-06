@@ -4961,20 +4961,25 @@ app.patch('/api/lessons/:id/payment', handleLessonPayment);
 // ============================================================
 // SERVER INITIALIZATION
 // ============================================================
+const DEFAULT_MONGODB_URI =
+  'mongodb+srv://catamaran_app_user:CatamaranPosSystem@cluster0.xopp0.mongodb.net/catamaran_pos?retryWrites=true&w=majority';
+
 async function startServer() {
   try {
-    if (!process.env.MONGODB_URI) {
-      throw new Error('MONGODB_URI is missing from .env');
-    }
+    const mongoUri = process.env.MONGODB_URI || DEFAULT_MONGODB_URI;
 
     try {
-      await mongoose.connect(process.env.MONGODB_URI, {
-        serverSelectionTimeoutMS: 4000,
+      await mongoose.connect(mongoUri, {
+        serverSelectionTimeoutMS: 5000,
         retryWrites: false
       });
-      console.log('MongoDB connected successfully to URI in .env');
+      console.log('MongoDB connected successfully to Atlas database');
     } catch (primaryErr) {
-      console.warn('Primary MongoDB connection failed (' + primaryErr.message + '). Attempting local MongoDB fallback (mongodb://127.0.0.1:27017/catamaran_pos)...');
+      console.warn(
+        'Primary MongoDB connection failed (' +
+          primaryErr.message +
+          '). Attempting local MongoDB fallback (mongodb://127.0.0.1:27017/catamaran_pos)...'
+      );
       await mongoose.connect('mongodb://127.0.0.1:27017/catamaran_pos', {
         serverSelectionTimeoutMS: 3000,
         retryWrites: false
@@ -4983,15 +4988,22 @@ async function startServer() {
     }
 
     await checkReplicaSetSupport();
-    console.log('MongoDB connected successfully');
+    console.log('MongoDB connection established');
 
-    app.listen(PORT, '127.0.0.1', () => {
+    const server = app.listen(PORT, '127.0.0.1', () => {
       console.log(`Backend running at http://127.0.0.1:${PORT}`);
+    });
+
+    server.on('error', (err) => {
+      if (err.code === 'EADDRINUSE') {
+        console.log(`Port ${PORT} is already in use by another instance. POS terminal will connect to active backend.`);
+      } else {
+        console.error('Backend server error:', err);
+      }
     });
   } catch (error) {
     console.error('Backend startup failed. Check MongoDB settings and Atlas access.');
     console.error(error.message);
-    process.exit(1);
   }
 }
 
