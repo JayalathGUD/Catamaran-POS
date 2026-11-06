@@ -99,6 +99,15 @@ const lessonSchema = new mongoose.Schema(
       enum: ['Paid', 'Partially Paid', 'Unpaid'],
       default: 'Paid'
     },
+    billId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Bill',
+      default: null
+    },
+    billNumber: {
+      type: String,
+      default: ''
+    },
     totalPaid: {
       type: Number,
       default: 0,
@@ -209,6 +218,7 @@ const lessonSchema = new mongoose.Schema(
 lessonSchema.index({ status: 1 });
 lessonSchema.index({ startDate: 1 });
 lessonSchema.index({ instructorId: 1 });
+lessonSchema.index({ billId: 1 });
 lessonSchema.index({ startTimestamp: 1, endTimestamp: 1 });
 lessonSchema.index({ createdAt: -1 });
 

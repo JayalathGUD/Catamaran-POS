@@ -1093,7 +1093,13 @@ export const PosBilling: React.FC<PosBillingProps> = ({
           {activeBill && (
             <div className="pos-active-tab-banner">
               <div className="tab-banner-left">
-                <span className="tab-banner-kicker">ACTIVE OPEN TAB</span>
+                <span className="tab-banner-kicker">
+                  {activeBill.saleType === 'Surfboard Rental' || activeBill.items.some((i) => i.code === 'RENTAL')
+                    ? '🏄 SURFBOARD RENTAL TAB'
+                    : activeBill.saleType === 'Surf Lesson' || activeBill.items.some((i) => i.code === 'LESSON')
+                    ? '🌊 SURF LESSON TAB'
+                    : 'ACTIVE OPEN TAB'}
+                </span>
                 <span className="tab-banner-number">{activeBill.billNumber}</span>
                 <span className="tab-banner-ref">
                   Guest / Ref: <strong>{customerReference || 'None assigned'}</strong>
@@ -1516,7 +1522,13 @@ export const PosBilling: React.FC<PosBillingProps> = ({
             {activeBill && (
               <div className="pro-active-tab-banner">
                 <div className="pro-tab-meta">
-                  <span className="pro-tab-tag">ACTIVE TAB</span>
+                  <span className="pro-tab-tag">
+                    {activeBill.saleType === 'Surfboard Rental' || activeBill.items.some((i) => i.code === 'RENTAL')
+                      ? '🏄 RENTAL TAB'
+                      : activeBill.saleType === 'Surf Lesson' || activeBill.items.some((i) => i.code === 'LESSON')
+                      ? '🌊 LESSON TAB'
+                      : 'ACTIVE TAB'}
+                  </span>
                   <strong className="pro-tab-num">#{activeBill.billNumber}</strong>
                   {activeBill.customerName && (
                     <span className="pro-tab-guest">· {activeBill.customerName}</span>
@@ -1993,7 +2005,28 @@ export const PosBilling: React.FC<PosBillingProps> = ({
                       )}
                     </button>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: '8px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px' }}>
+                      <button
+                        type="button"
+                        onClick={handleUpdateOpenBill}
+                        disabled={cart.length === 0 || isUpdatingOpenBill || isSubmittingBill}
+                        className="pro-subrow-update-btn"
+                        style={{ background: '#0284c7', color: '#fff', borderColor: '#0369a1' }}
+                        title="Save added items to tab in database without sending kitchen ticket"
+                      >
+                        {isUpdatingOpenBill ? (
+                          <>
+                            <IconRotateCcw size={14} style={{ animation: 'spin 1s linear infinite' }} />
+                            <span>Saving...</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>💾</span>
+                            <span>Save Tab</span>
+                          </>
+                        )}
+                      </button>
+
                       <button
                         type="button"
                         onClick={handleUpdateOpenBillAndPrintKot}
@@ -2003,13 +2036,13 @@ export const PosBilling: React.FC<PosBillingProps> = ({
                       >
                         {isUpdatingOpenBill ? (
                           <>
-                            <IconRotateCcw size={15} style={{ animation: 'spin 1s linear infinite' }} />
+                            <IconRotateCcw size={14} style={{ animation: 'spin 1s linear infinite' }} />
                             <span>Updating...</span>
                           </>
                         ) : (
                           <>
                             <span>🍳</span>
-                            <span>Send Add-on to Kitchen</span>
+                            <span>Kitchen (KOT)</span>
                           </>
                         )}
                       </button>

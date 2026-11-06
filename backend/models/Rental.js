@@ -57,6 +57,15 @@ const rentalSchema = new mongoose.Schema(
       enum: ['Active', 'Completed', 'Cancelled'],
       default: 'Active'
     },
+    billId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Bill',
+      default: null
+    },
+    billNumber: {
+      type: String,
+      default: ''
+    },
     // Return & Settlement details
     receiptNumber: {
       type: String,
@@ -142,6 +151,7 @@ const rentalSchema = new mongoose.Schema(
 
 rentalSchema.index({ status: 1 });
 rentalSchema.index({ boardId: 1 });
+rentalSchema.index({ billId: 1 });
 rentalSchema.index({ createdAt: -1 });
 
 module.exports = mongoose.model('Rental', rentalSchema);

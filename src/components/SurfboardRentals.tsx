@@ -50,6 +50,7 @@ interface SurfboardRentalsProps {
   completedRentals?: CompletedRental[]
   setCompletedRentals?: React.Dispatch<React.SetStateAction<CompletedRental[]>>
   onTransferToPosBill?: (cartItem: PosCartItem, customerName?: string) => void
+  onOpenTabInPos?: (billId: string) => void
 }
 
 type RentalsViewTab = 'fleet' | 'active' | 'history' | 'maintenance'
@@ -125,7 +126,8 @@ export const SurfboardRentals: React.FC<SurfboardRentalsProps> = ({
   setActiveRentals: propSetActiveRentals,
   completedRentals: propCompletedRentals,
   setCompletedRentals: propSetCompletedRentals,
-  onTransferToPosBill
+  onTransferToPosBill,
+  onOpenTabInPos
 }) => {
   // Local fallback states if props are not provided
   const [localBoards, setLocalBoards] = useState<Surfboard[]>([])
@@ -502,7 +504,7 @@ export const SurfboardRentals: React.FC<SurfboardRentalsProps> = ({
       setCheckoutModalRental(newRental)
 
       showToast(
-        `[RENTAL STARTED] Board ${targetBoard.name} rented to ${newRental.customerName}. Rental Start Time: ${newRental.startTime} (${newRental.startDate}). Agreed Rate: ${formatLKR(newRental.agreedHourlyRate)}/hr.`
+        `🏄 [RENTAL STARTED] Board ${targetBoard.name} rented to ${newRental.customerName}. Open Tab #${newRental.billNumber || ''} created in Open Bills! Agreed Rate: ${formatLKR(newRental.agreedHourlyRate)}/hr.`
       )
     } catch (err: unknown) {
       console.error('Failed to start rental in database:', err)
@@ -1630,6 +1632,11 @@ export const SurfboardRentals: React.FC<SurfboardRentalsProps> = ({
                       <div className="card-board-badge">
                         <span className="badge-board-id">{rental.boardId}</span>
                         <span className="badge-category">{rental.boardCategory}</span>
+                        {rental.billNumber && (
+                          <span style={{ fontSize: '11px', color: '#0369a1', fontWeight: 700, background: '#e0f2fe', padding: '2px 7px', borderRadius: '4px', border: '1px solid #bae6fd' }}>
+                            Tab: {rental.billNumber}
+                          </span>
+                        )}
                       </div>
                       <span className="live-pulse-badge">
                         <span className="pulse-dot" />
@@ -1690,6 +1697,28 @@ export const SurfboardRentals: React.FC<SurfboardRentalsProps> = ({
                         <IconRotateCcw size={14} />
                         <span>Return Board</span>
                       </button>
+                      {rental.billId && (
+                        <button
+                          type="button"
+                          className="btn-slip-action"
+                          style={{
+                            background: '#eff6ff',
+                            color: '#1d4ed8',
+                            borderColor: '#bfdbfe',
+                            fontWeight: 600
+                          }}
+                          onClick={() => {
+                            if (onOpenTabInPos && rental.billId) {
+                              onOpenTabInPos(rental.billId)
+                            } else {
+                              onNavigate('Open Bills')
+                            }
+                          }}
+                          title="Open this customer's tab in POS to add food and drinks"
+                        >
+                          <span>🍽️ Add Food</span>
+                        </button>
+                      )}
                       <button
                         type="button"
                         className="btn-slip-action"
@@ -3406,6 +3435,25 @@ export const SurfboardRentals: React.FC<SurfboardRentalsProps> = ({
             </div>
 
             <div className="thermal-modal-actions">
+              {checkoutModalRental.billId && (
+                <button
+                  type="button"
+                  className="btn-print-58mm"
+                  style={{ background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)', color: '#fff' }}
+                  onClick={() => {
+                    const bId = checkoutModalRental.billId
+                    setCheckoutModalRental(null)
+                    if (onOpenTabInPos && bId) {
+                      onOpenTabInPos(bId)
+                    } else {
+                      onNavigate('Open Bills')
+                    }
+                  }}
+                  title="Open this customer's tab in POS to add cafe food and drinks"
+                >
+                  <span>🍽️ Add Cafe Items (Open Tab)</span>
+                </button>
+              )}
               <button
                 type="button"
                 className="btn-print-58mm"

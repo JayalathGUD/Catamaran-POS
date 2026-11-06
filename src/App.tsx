@@ -184,13 +184,25 @@ function App(): React.JSX.Element {
               setActiveRentals={setActiveRentals}
               completedRentals={completedRentals}
               setCompletedRentals={setCompletedRentals}
+              onOpenTabInPos={(billId) => {
+                setActiveOpenBillId(billId)
+                setCurrentPage('POS Billing')
+              }}
               onTransferToPosBill={(cartItem, customerName) => {
                 setExternalCartItem({ item: cartItem, customerName })
                 setCurrentPage('POS Billing')
               }}
             />
           )}
-          {currentPage === 'Surf Lessons' && <SurfLessons onNavigate={setCurrentPage} />}
+          {currentPage === 'Surf Lessons' && (
+            <SurfLessons
+              onNavigate={setCurrentPage}
+              onOpenTabInPos={(billId) => {
+                setActiveOpenBillId(billId)
+                setCurrentPage('POS Billing')
+              }}
+            />
+          )}
           {currentPage === 'Expenses' && <Expenses />}
           {currentPage === 'Reports' && <Reports />}
           {currentPage === 'Settings' && <Settings onNavigate={setCurrentPage} />}

@@ -6,8 +6,6 @@ out
 *.log*
 
 # Environment variables and secrets
-.env
-.env.*
 !.env.example
 
 # Local data and backups
@@ -23,3 +21,4 @@ backend/.env
 release/
 *.exe
 dist-electron/
+config.bat
