@@ -1470,6 +1470,56 @@ app.post('/api/bills/:id/pay', async (req, res) => {
         );
       }
 
+      // If bill was linked to a Rental, sync Rental payment status
+      if (bill.rentalId) {
+        await Rental.findByIdAndUpdate(
+          bill.rentalId,
+          {
+            paymentStatus: billPaymentStatus,
+            totalPaid: billTotalPaid,
+            balanceDue: billBalanceDue,
+            paymentMethod: bill.paymentMethod
+          },
+          sessionOpt
+        );
+      } else if (bill.customerName && bill.items.some((it) => it.code === 'RENTAL')) {
+        await Rental.updateMany(
+          { customerName: bill.customerName, status: { $in: ['Active', 'Completed'] } },
+          {
+            paymentStatus: billPaymentStatus,
+            totalPaid: billTotalPaid,
+            balanceDue: billBalanceDue,
+            paymentMethod: bill.paymentMethod
+          },
+          sessionOpt
+        );
+      }
+
+      // If bill was linked to a Lesson, sync Lesson payment status
+      if (bill.lessonId) {
+        await Lesson.findByIdAndUpdate(
+          bill.lessonId,
+          {
+            paymentStatus: billPaymentStatus,
+            totalPaid: billTotalPaid,
+            balanceDue: billBalanceDue,
+            paymentMethod: bill.paymentMethod
+          },
+          sessionOpt
+        );
+      } else if (bill.customerName && bill.items.some((it) => it.code === 'LESSON')) {
+        await Lesson.updateMany(
+          { customerName: bill.customerName, status: { $in: ['In Progress', 'Completed'] } },
+          {
+            paymentStatus: billPaymentStatus,
+            totalPaid: billTotalPaid,
+            balanceDue: billBalanceDue,
+            paymentMethod: bill.paymentMethod
+          },
+          sessionOpt
+        );
+      }
+
       return bill;
     });
 
@@ -1824,7 +1874,7 @@ app.get('/api/rentals', async (req, res) => {
   }
 });
 
-// Start a rental
+// Start a rental & automatically create Open Tab in Open Bills
 app.post('/api/rentals/start', async (req, res) => {
   try {
     const {
@@ -1839,34 +1889,97 @@ app.post('/api/rentals/start', async (req, res) => {
       startTimestamp,
       hourlyRate,
       agreedHourlyRate,
-      notes
+      notes,
+      cashier
     } = req.body;
 
     if (!boardId || !customerName) {
       return res.status(400).json({ message: 'Board and Customer Name are required' });
     }
 
+    const trimmedCustomer = customerName.trim();
+    const finalStartDate = startDate || new Date().toISOString().split('T')[0];
+    const finalStartTime =
+      startTime ||
+      new Date().toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
+    const finalStartTimestamp = Number(startTimestamp) || Date.now();
+    const finalHourlyRate = Number(hourlyRate) || 1000;
+    const finalAgreedRate = Number(agreedHourlyRate) || 1000;
+
+    // Generate sequential bill number
+    const year = new Date().getFullYear();
+    const count = await Bill.countDocuments();
+    let finalBillNumber = `BILL-${year}-${String(count + 1).padStart(4, '0')}`;
+    let attempts = 0;
+    while (attempts < 20) {
+      const existing = await Bill.findOne({ billNumber: finalBillNumber }, { _id: 1 });
+      if (!existing) break;
+      attempts++;
+      finalBillNumber = `BILL-${year}-${String(count + 1 + attempts).padStart(4, '0')}`;
+    }
+
+    const newRentalId = new mongoose.Types.ObjectId();
+
+    // Automatically create Open Bill in Open Bills so cafe food/drinks can be billed together
+    const openBill = await Bill.create({
+      billNumber: finalBillNumber,
+      customerName: trimmedCustomer,
+      date: finalStartDate,
+      time: finalStartTime,
+      orderType: 'Dine-in',
+      saleType: 'Surfboard Rental',
+      paymentMethod: 'Cash',
+      items: [
+        {
+          name: `Surfboard Rental - ${boardName}`,
+          quantity: 1,
+          unitPrice: finalAgreedRate,
+          total: finalAgreedRate,
+          code: 'RENTAL',
+          addedAt: new Date().toISOString()
+        }
+      ],
+      subtotal: finalAgreedRate,
+      discount: 0,
+      serviceCharge: 0,
+      total: finalAgreedRate,
+      status: 'Open',
+      paymentStatus: 'Unpaid',
+      totalPaid: 0,
+      balanceDue: finalAgreedRate,
+      cashier: cashier || 'Kasun P.',
+      rentalId: newRentalId,
+      notes: `Rental: ${boardName} (Started: ${finalStartTime})${customerContact ? ' | Tel: ' + customerContact : ''}`
+    });
+
     const rental = await Rental.create({
+      _id: newRentalId,
       boardId,
       boardName,
       boardCategory: boardCategory || 'Soft-top Foamies',
-      customerName: customerName.trim(),
+      customerName: trimmedCustomer,
       customerContact: customerContact || '',
       customerPassportOrId: customerPassportOrId || '',
-      startDate: startDate || new Date().toISOString().split('T')[0],
-      startTime: startTime || new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }),
-      startTimestamp: Number(startTimestamp) || Date.now(),
-      hourlyRate: Number(hourlyRate) || 1000,
-      agreedHourlyRate: Number(agreedHourlyRate) || 1000,
+      startDate: finalStartDate,
+      startTime: finalStartTime,
+      startTimestamp: finalStartTimestamp,
+      hourlyRate: finalHourlyRate,
+      agreedHourlyRate: finalAgreedRate,
       notes: notes || '',
-      status: 'Active'
+      status: 'Active',
+      billId: openBill._id,
+      billNumber: openBill.billNumber
     });
 
     // Update board status to 'Rented'
     await Surfboard.findByIdAndUpdate(boardId, {
       status: 'Rented',
       currentRentalId: rental._id.toString(),
-      currentCustomer: customerName.trim(),
+      currentCustomer: trimmedCustomer,
       rentalStartTime: rental.startTime
     });
 
@@ -2025,51 +2138,118 @@ app.post('/api/rentals/return/:id', async (req, res) => {
         );
       }
 
-      // Automatically create or sync an official Bill record so this rental appears in POS Billing & Bill History
+      // Update or sync the linked Open Bill in Open Bills
       try {
-        const year = new Date().getFullYear();
-        const billNumber = `BILL-RNT-${year}-${String(rental._id).slice(-4).toUpperCase()}`;
-
-        const billItems = [
-          {
-            name: `Surfboard Rental - ${rental.boardName} (${rental.durationDisplay || 'Rental'})`,
-            quantity: 1,
-            unitPrice: rental.actualRentalCharge || finalCharged,
-            total: rental.actualRentalCharge || finalCharged,
-            code: 'RENTAL'
-          }
-        ];
-
-        if (rental.damageFee > 0) {
-          billItems.push({
-            name: `Damage Fee - ${rental.boardName}`,
-            quantity: 1,
-            unitPrice: rental.damageFee,
-            total: rental.damageFee,
-            code: 'DAMAGE-FEE'
-          });
+        let linkedBill = null;
+        if (rental.billId) {
+          linkedBill = await Bill.findById(rental.billId, null, sessionOpt);
+        }
+        if (!linkedBill) {
+          linkedBill = await Bill.findOne({ rentalId: rental._id }, null, sessionOpt);
+        }
+        if (!linkedBill) {
+          linkedBill = await Bill.findOne(
+            {
+              status: 'Open',
+              customerName: rental.customerName,
+              'items.code': 'RENTAL'
+            },
+            null,
+            sessionOpt
+          );
         }
 
-        const existingBill = await Bill.findOne(
-          {
-            $or: [
-              { billNumber },
-              { 'items.code': 'RENTAL', customerName: rental.customerName, date: rental.returnDate }
-            ]
-          },
-          null,
-          sessionOpt
-        );
+        const rentalItemName = `Surfboard Rental - ${rental.boardName} (${rental.durationDisplay || 'Rental'})`;
+        const rentalItemPrice = rental.actualRentalCharge || finalCharged;
 
-        if (!existingBill) {
-          await Bill.create(
+        if (linkedBill) {
+          // Update existing bill (preserving any cafe food/drinks already added!)
+          const existingRentalIdx = linkedBill.items.findIndex((it) => it.code === 'RENTAL');
+          if (existingRentalIdx >= 0) {
+            linkedBill.items[existingRentalIdx].name = rentalItemName;
+            linkedBill.items[existingRentalIdx].unitPrice = rentalItemPrice;
+            linkedBill.items[existingRentalIdx].total = rentalItemPrice;
+          } else {
+            linkedBill.items.unshift({
+              name: rentalItemName,
+              quantity: 1,
+              unitPrice: rentalItemPrice,
+              total: rentalItemPrice,
+              code: 'RENTAL',
+              addedAt: new Date().toISOString()
+            });
+          }
+
+          // Damage fee
+          const existingDamageIdx = linkedBill.items.findIndex((it) => it.code === 'DAMAGE-FEE');
+          if (rental.damageFee > 0) {
+            if (existingDamageIdx >= 0) {
+              linkedBill.items[existingDamageIdx].unitPrice = rental.damageFee;
+              linkedBill.items[existingDamageIdx].total = rental.damageFee;
+            } else {
+              linkedBill.items.push({
+                name: `Damage Fee - ${rental.boardName}`,
+                quantity: 1,
+                unitPrice: rental.damageFee,
+                total: rental.damageFee,
+                code: 'DAMAGE-FEE',
+                addedAt: new Date().toISOString()
+              });
+            }
+          } else if (existingDamageIdx >= 0) {
+            linkedBill.items.splice(existingDamageIdx, 1);
+          }
+
+          // Recalculate bill subtotal & total
+          linkedBill.subtotal = linkedBill.items.reduce((s, it) => s + it.total, 0);
+          linkedBill.total = Math.max(0, linkedBill.subtotal - (linkedBill.discount || 0)) + (linkedBill.serviceCharge || 0);
+
+          if (finalPaymentStatus === 'Paid') {
+            linkedBill.status = 'Settled';
+            linkedBill.paymentStatus = 'Paid';
+            linkedBill.paymentMethod = paymentMethod || linkedBill.paymentMethod || 'Cash';
+            linkedBill.totalPaid = linkedBill.total;
+            linkedBill.balanceDue = 0;
+            linkedBill.closedAt = slNow.isoStr;
+          } else {
+            linkedBill.status = 'Open';
+            linkedBill.paymentStatus = 'Unpaid';
+            linkedBill.balanceDue = linkedBill.total;
+          }
+          await linkedBill.save(sessionOpt);
+          rental.billId = linkedBill._id;
+          rental.billNumber = linkedBill.billNumber;
+          await rental.save(sessionOpt);
+        } else {
+          // If no existing bill was found (e.g. legacy rental), create one
+          const year = new Date().getFullYear();
+          const billNumber = `BILL-RNT-${year}-${String(rental._id).slice(-4).toUpperCase()}`;
+          const billItems = [
+            {
+              name: rentalItemName,
+              quantity: 1,
+              unitPrice: rentalItemPrice,
+              total: rentalItemPrice,
+              code: 'RENTAL'
+            }
+          ];
+          if (rental.damageFee > 0) {
+            billItems.push({
+              name: `Damage Fee - ${rental.boardName}`,
+              quantity: 1,
+              unitPrice: rental.damageFee,
+              total: rental.damageFee,
+              code: 'DAMAGE-FEE'
+            });
+          }
+          const createdBill = await Bill.create(
             [
               {
                 billNumber,
                 customerName: rental.customerName,
                 date: rental.returnDate,
                 time: rental.returnTime,
-                orderType: 'Takeaway',
+                orderType: 'Dine-in',
                 saleType: 'Surfboard Rental',
                 paymentMethod: paymentMethod || 'Cash',
                 items: billItems,
@@ -2078,12 +2258,19 @@ app.post('/api/rentals/return/:id', async (req, res) => {
                 serviceCharge: 0,
                 total: finalCharged,
                 status: finalPaymentStatus === 'Paid' ? 'Settled' : 'Open',
+                paymentStatus: finalPaymentStatus,
+                totalPaid: finalPaymentStatus === 'Paid' ? finalCharged : 0,
+                balanceDue: finalPaymentStatus === 'Paid' ? 0 : finalCharged,
                 cashier: cashier || 'Staff',
+                rentalId: rental._id,
                 notes: `Rental Ref: ${finalReceipt}. Board: ${rental.boardName}. Returned: ${rental.returnDate} ${rental.returnTime}`
               }
             ],
             sessionOpt
           );
+          rental.billId = createdBill[0]._id;
+          rental.billNumber = createdBill[0].billNumber;
+          await rental.save(sessionOpt);
         }
       } catch (billSyncErr) {
         console.warn('Bill sync for rental notice:', billSyncErr.message);
@@ -3846,6 +4033,62 @@ app.post('/api/lessons/walkin', async (req, res) => {
         );
       }
 
+      // Automatically create Open Tab in Open Bills so cafe food/drinks can be billed together
+      try {
+        const bCount = await Bill.countDocuments().session(session);
+        let billNumberForLesson = `BILL-${year}-${String(bCount + 1).padStart(4, '0')}`;
+        let bAttempts = 0;
+        while (bAttempts < 20) {
+          const bExisting = await Bill.findOne({ billNumber: billNumberForLesson }, { _id: 1 }).session(session);
+          if (!bExisting) break;
+          bAttempts++;
+          billNumberForLesson = `BILL-${year}-${String(bCount + 1 + bAttempts).padStart(4, '0')}`;
+        }
+
+        const lessonItemName = `Surf Lesson - ${lessonType || 'Private'} (${validStudentCount} student${validStudentCount > 1 ? 's' : ''})`;
+        const [openBill] = await Bill.create(
+          [
+            {
+              billNumber: billNumberForLesson,
+              customerName: customerName.trim(),
+              date: finalStartDate,
+              time: finalStartTime,
+              orderType: 'Dine-in',
+              saleType: 'Surf Lesson',
+              paymentMethod: paymentMethod || 'Cash',
+              items: [
+                {
+                  name: lessonItemName,
+                  quantity: 1,
+                  unitPrice: calcTotal,
+                  total: calcTotal,
+                  code: 'LESSON',
+                  addedAt: new Date().toISOString()
+                }
+              ],
+              subtotal: calcTotal,
+              discount: 0,
+              serviceCharge: 0,
+              total: calcTotal,
+              status: 'Open',
+              paymentStatus: finalPaymentStatus,
+              totalPaid: lessonTotalPaid,
+              balanceDue: lessonBalanceDue,
+              cashier: cashier || 'Cashier',
+              lessonId: newLessonId,
+              notes: `Lesson #${finalLessonNumber} | Instructor: ${instructorDoc ? instructorDoc.name : 'Unassigned'}`
+            }
+          ],
+          { session }
+        );
+
+        lesson.billId = openBill._id;
+        lesson.billNumber = openBill.billNumber;
+        await lesson.save({ session });
+      } catch (billCreateErr) {
+        console.warn('Could not create open bill for lesson:', billCreateErr.message);
+      }
+
       createdLesson = lesson;
     });
 
@@ -4015,6 +4258,33 @@ app.patch('/api/lessons/:id/status', async (req, res) => {
         }
 
         await lesson.save({ session });
+
+        // Sync linked Open Bill
+        try {
+          const linkedBill = lesson.billId
+            ? await Bill.findById(lesson.billId).session(session)
+            : await Bill.findOne({ lessonId: lesson._id }).session(session);
+
+          if (linkedBill && linkedBill.status === 'Open') {
+            if (status === 'Completed') {
+              if (lesson.paymentStatus === 'Paid') {
+                linkedBill.status = 'Settled';
+                linkedBill.paymentStatus = 'Paid';
+                linkedBill.totalPaid = linkedBill.total;
+                linkedBill.balanceDue = 0;
+                linkedBill.closedAt = nowIso;
+                await linkedBill.save({ session });
+              }
+            } else if (status === 'Cancelled') {
+              linkedBill.status = 'Cancelled';
+              linkedBill.notes = (linkedBill.notes || '') + ` [Lesson Cancelled: ${cancelReason || 'Cancelled'}]`;
+              await linkedBill.save({ session });
+            }
+          }
+        } catch (bErr) {
+          console.warn('Lesson bill status sync notice:', bErr.message);
+        }
+
         updatedLesson = lesson;
       });
 

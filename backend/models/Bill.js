@@ -127,6 +127,16 @@ const billSchema = new mongoose.Schema(
     notes: {
       type: String,
       default: ''
+    },
+    rentalId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Rental',
+      default: null
+    },
+    lessonId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Lesson',
+      default: null
     }
   },
   { timestamps: true }
@@ -134,5 +144,7 @@ const billSchema = new mongoose.Schema(
 
 billSchema.index({ createdAt: -1 });
 billSchema.index({ status: 1 });
+billSchema.index({ rentalId: 1 });
+billSchema.index({ lessonId: 1 });
 
 module.exports = mongoose.model('Bill', billSchema);

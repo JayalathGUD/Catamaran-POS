@@ -1,14 +1,10 @@
 const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('path');
 const { fork } = require('child_process');
-const { autoUpdater } = require('electron-updater');
-
-// Configure autoUpdater
-autoUpdater.autoDownload = true;
-autoUpdater.autoInstallOnAppQuit = true;
 
 let mainWindow = null;
 let backendProcess = null;
+let autoUpdater = null;
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 
 function startBackend() {
@@ -138,72 +134,81 @@ function setupAutoUpdater() {
     return;
   }
 
-  autoUpdater.on('checking-for-update', () => {
-    console.log('[AutoUpdater] Checking for updates on GitHub Releases...');
-    mainWindow?.webContents.send('update-message', {
-      status: 'checking',
-      text: 'Checking for updates on GitHub...'
-    });
-  });
+  try {
+    const updaterModule = require('electron-updater');
+    autoUpdater = updaterModule.autoUpdater;
+    autoUpdater.autoDownload = true;
+    autoUpdater.autoInstallOnAppQuit = true;
 
-  autoUpdater.on('update-available', (info) => {
-    console.log('[AutoUpdater] Update available:', info.version);
-    mainWindow?.webContents.send('update-message', {
-      status: 'available',
-      version: info.version,
-      text: `Update v${info.version} available! Downloading in background...`
+    autoUpdater.on('checking-for-update', () => {
+      console.log('[AutoUpdater] Checking for updates on GitHub Releases...');
+      mainWindow?.webContents.send('update-message', {
+        status: 'checking',
+        text: 'Checking for updates on GitHub...'
+      });
     });
-  });
 
-  autoUpdater.on('update-not-available', (info) => {
-    console.log('[AutoUpdater] Up to date.');
-    mainWindow?.webContents.send('update-message', {
-      status: 'up-to-date',
-      version: app.getVersion(),
-      text: `Catamaran POS is up to date (v${app.getVersion()})`
+    autoUpdater.on('update-available', (info) => {
+      console.log('[AutoUpdater] Update available:', info.version);
+      mainWindow?.webContents.send('update-message', {
+        status: 'available',
+        version: info.version,
+        text: `Update v${info.version} available! Downloading in background...`
+      });
     });
-  });
 
-  autoUpdater.on('download-progress', (progressObj) => {
-    const percent = Math.floor(progressObj.percent);
-    mainWindow?.webContents.send('update-message', {
-      status: 'downloading',
-      percent,
-      text: `Downloading update: ${percent}%`
+    autoUpdater.on('update-not-available', (info) => {
+      console.log('[AutoUpdater] Up to date.');
+      mainWindow?.webContents.send('update-message', {
+        status: 'up-to-date',
+        version: app.getVersion(),
+        text: `Catamaran POS is up to date (v${app.getVersion()})`
+      });
     });
-  });
 
-  autoUpdater.on('update-downloaded', (info) => {
-    console.log('[AutoUpdater] Update downloaded successfully:', info.version);
-    mainWindow?.webContents.send('update-message', {
-      status: 'downloaded',
-      version: info.version,
-      text: `Update v${info.version} downloaded! Restart application to apply.`
+    autoUpdater.on('download-progress', (progressObj) => {
+      const percent = Math.floor(progressObj.percent);
+      mainWindow?.webContents.send('update-message', {
+        status: 'downloading',
+        percent,
+        text: `Downloading update: ${percent}%`
+      });
     });
-  });
 
-  autoUpdater.on('error', (err) => {
-    console.warn('[AutoUpdater] Update check error:', err?.message || err);
-    mainWindow?.webContents.send('update-message', {
-      status: 'error',
-      text: 'Update check failed: ' + (err?.message || 'Network error')
+    autoUpdater.on('update-downloaded', (info) => {
+      console.log('[AutoUpdater] Update downloaded successfully:', info.version);
+      mainWindow?.webContents.send('update-message', {
+        status: 'downloaded',
+        version: info.version,
+        text: `Update v${info.version} downloaded! Restart application to apply.`
+      });
     });
-  });
 
-  // Check 5 seconds after launch, and periodically every 30 minutes
-  setTimeout(() => {
-    autoUpdater.checkForUpdatesAndNotify().catch((err) => {
-      console.warn('[AutoUpdater] Initial check error:', err.message);
+    autoUpdater.on('error', (err) => {
+      console.warn('[AutoUpdater] Update check error:', err?.message || err);
+      mainWindow?.webContents.send('update-message', {
+        status: 'error',
+        text: 'Update check failed: ' + (err?.message || 'Network error')
+      });
     });
-  }, 5000);
 
-  setInterval(() => {
-    autoUpdater.checkForUpdatesAndNotify().catch(() => {});
-  }, 30 * 60 * 1000);
+    // Check 5 seconds after launch, and periodically every 30 minutes
+    setTimeout(() => {
+      autoUpdater?.checkForUpdatesAndNotify().catch((err) => {
+        console.warn('[AutoUpdater] Initial check error:', err.message);
+      });
+    }, 5000);
+
+    setInterval(() => {
+      autoUpdater?.checkForUpdatesAndNotify().catch(() => {});
+    }, 30 * 60 * 1000);
+  } catch (err) {
+    console.warn('[AutoUpdater] Failed to initialize electron-updater:', err?.message || err);
+  }
 }
 
 ipcMain.handle('check-for-updates', async () => {
-  if (isDev) {
+  if (isDev || !autoUpdater) {
     return {
       status: 'dev',
       text: `Running in development mode (v${app.getVersion()})`
@@ -225,7 +230,7 @@ ipcMain.handle('check-for-updates', async () => {
 });
 
 ipcMain.handle('restart-and-install-update', () => {
-  autoUpdater.quitAndInstall();
+  autoUpdater?.quitAndInstall();
 });
 
 app.whenReady().then(() => {
@@ -250,4 +255,3 @@ app.on('window-all-closed', () => {
     app.quit();
   }
 });
-

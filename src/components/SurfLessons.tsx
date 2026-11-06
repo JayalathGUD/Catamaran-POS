@@ -48,6 +48,7 @@ import {
 
 interface SurfLessonsProps {
   onNavigate?: (page: NavigationPage) => void
+  onOpenTabInPos?: (billId: string) => void
 }
 
 type ActiveViewTab = 'lessons' | 'instructors'
@@ -73,7 +74,7 @@ const formatLKR = (amount: number): string =>
     maximumFractionDigits: 2
   })}`
 
-export const SurfLessons: React.FC<SurfLessonsProps> = ({ onNavigate: _onNavigate }) => {
+export const SurfLessons: React.FC<SurfLessonsProps> = ({ onNavigate, onOpenTabInPos }) => {
   // Navigation tab
   const [activeTab, setActiveTab] = useState<ActiveViewTab>('lessons')
 
@@ -358,7 +359,7 @@ export const SurfLessons: React.FC<SurfLessonsProps> = ({ onNavigate: _onNavigat
       const createdLesson = await createWalkinLesson(payload)
       setIsWalkinModalOpen(false)
       setWalkinForm(initialWalkinFormState)
-      showToast(`Lesson #${createdLesson.lessonNumber} registered successfully for ${createdLesson.customerName}!`, 'success')
+      showToast(`🌊 Lesson #${createdLesson.lessonNumber} registered! Open Tab #${createdLesson.billNumber || ''} created in Open Bills for ${createdLesson.customerName}.`, 'success')
       await loadData()
     } catch (err: any) {
       console.error('Walk-in lesson registration error:', err)
@@ -1047,9 +1048,16 @@ export const SurfLessons: React.FC<SurfLessonsProps> = ({ onNavigate: _onNavigat
                       <tr key={lesson.id} className={isCancelled ? 'surf-row-cancelled' : ''}>
                         {/* Lesson # */}
                         <td>
-                          <span className="surf-lesson-num font-mono font-bold">
-                            {lesson.lessonNumber}
-                          </span>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                            <span className="surf-lesson-num font-mono font-bold">
+                              {lesson.lessonNumber}
+                            </span>
+                            {lesson.billNumber && (
+                              <span style={{ fontSize: '10px', color: '#0369a1', fontWeight: 700, background: '#e0f2fe', padding: '1px 5px', borderRadius: '4px', width: 'fit-content', border: '1px solid #bae6fd' }}>
+                                Tab: {lesson.billNumber}
+                              </span>
+                            )}
+                          </div>
                         </td>
 
                         {/* Customer */}
@@ -1192,6 +1200,37 @@ export const SurfLessons: React.FC<SurfLessonsProps> = ({ onNavigate: _onNavigat
                             >
                               <IconEye size={15} />
                             </button>
+
+                            {/* Add cafe items to open tab */}
+                            {lesson.billId && !isCancelled && (
+                              <button
+                                type="button"
+                                className="surf-action-text-btn"
+                                style={{
+                                  background: '#eff6ff',
+                                  color: '#1d4ed8',
+                                  border: '1px solid #bfdbfe',
+                                  padding: '4px 7px',
+                                  borderRadius: '5px',
+                                  fontWeight: 600,
+                                  fontSize: '11px',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '3px',
+                                  cursor: 'pointer'
+                                }}
+                                onClick={() => {
+                                  if (onOpenTabInPos && lesson.billId) {
+                                    onOpenTabInPos(lesson.billId);
+                                  } else if (onNavigate) {
+                                    onNavigate('Open Bills');
+                                  }
+                                }}
+                                title="Open this guest's tab in POS to add food and drinks"
+                              >
+                                <span>🍽️ Add Food</span>
+                              </button>
+                            )}
 
                             {/* Complete lesson */}
                             {isInProgress && (
@@ -2607,8 +2646,8 @@ export const SurfLessons: React.FC<SurfLessonsProps> = ({ onNavigate: _onNavigat
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                   <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
                     {walkinForm.paymentStatus === 'Paid'
-                      ? 'Total Payable (Paid Now):'
-                      : 'Total Payable (Pay Later):'}
+                      ? 'Total (Paid · Tab Opened in POS):'
+                      : 'Total (Open Tab · Pay at Checkout):'}
                   </span>
                   <span
                     style={{

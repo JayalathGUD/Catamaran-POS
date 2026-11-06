@@ -88,6 +88,8 @@ function formatBillResponse(b: any): HistoryBill {
     refundedAt: b.refundedAt || undefined,
     closedAt: b.closedAt || undefined,
     notes: b.notes || undefined,
+    rentalId: b.rentalId ? String(b.rentalId) : undefined,
+    lessonId: b.lessonId ? String(b.lessonId) : undefined,
     createdAt: b.createdAt ? String(b.createdAt) : undefined,
     updatedAt: b.updatedAt ? String(b.updatedAt) : undefined
   }
@@ -352,7 +354,9 @@ export async function getRentals(filters?: {
         startTimestamp: r.startTimestamp || Date.now(),
         hourlyRate: r.hourlyRate || 1000,
         agreedHourlyRate: r.agreedHourlyRate || 1000,
-        notes: r.notes || undefined
+        notes: r.notes || undefined,
+        billId: r.billId ? String(r.billId) : undefined,
+        billNumber: r.billNumber ? String(r.billNumber) : undefined
       })
     } else if (r.status === 'Completed') {
       completed.push({
@@ -386,6 +390,8 @@ export async function getRentals(filters?: {
         paymentStatus: r.paymentStatus || 'Paid',
         paymentRecordedAt: r.paymentRecordedAt,
         notes: r.notes || undefined,
+        billId: r.billId ? String(r.billId) : undefined,
+        billNumber: r.billNumber ? String(r.billNumber) : undefined,
         returnedAt: r.returnedAt || `${r.returnDate || ''} ${r.returnTime || ''}`
       })
     }
@@ -431,7 +437,9 @@ export async function startRental(rentalData: {
     startTimestamp: r.startTimestamp,
     hourlyRate: r.hourlyRate,
     agreedHourlyRate: r.agreedHourlyRate,
-    notes: r.notes
+    notes: r.notes,
+    billId: r.billId ? String(r.billId) : undefined,
+    billNumber: r.billNumber ? String(r.billNumber) : undefined
   }
 }
 
@@ -497,6 +505,8 @@ export async function returnRental(
     paymentStatus: r.paymentStatus,
     paymentRecordedAt: r.paymentRecordedAt,
     notes: r.notes,
+    billId: r.billId ? String(r.billId) : undefined,
+    billNumber: r.billNumber ? String(r.billNumber) : undefined,
     returnedAt: r.returnedAt
   }
 }
@@ -970,6 +980,8 @@ function mapSurfLesson(item: any): SurfLesson {
     coconutMovementId: item.coconutMovementId ? String(item.coconutMovementId) : undefined,
     notes: item.notes ? String(item.notes) : undefined,
     cashier: item.cashier ? String(item.cashier) : undefined,
+    billId: item.billId ? String(item.billId) : undefined,
+    billNumber: item.billNumber ? String(item.billNumber) : undefined,
     createdAt: item.createdAt ? String(item.createdAt) : undefined,
     updatedAt: item.updatedAt ? String(item.updatedAt) : undefined
   }

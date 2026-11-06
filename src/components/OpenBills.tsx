@@ -405,7 +405,20 @@ export const OpenBills: React.FC<OpenBillsProps> = ({
                       OPEN
                     </span>
                   </div>
-                  <div className="open-bill-header-right">
+                  <div className="open-bill-header-right" style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                    {bill.saleType === 'Surfboard Rental' || bill.items.some((i) => i.code === 'RENTAL') ? (
+                      <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 8px', borderRadius: '12px', background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0' }}>
+                        🏄 Surfboard Rental
+                      </span>
+                    ) : bill.saleType === 'Surf Lesson' || bill.items.some((i) => i.code === 'LESSON') ? (
+                      <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 8px', borderRadius: '12px', background: '#f0f9ff', color: '#0284c7', border: '1px solid #bae6fd' }}>
+                        🌊 Surf Lesson
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 8px', borderRadius: '12px', background: '#fff7ed', color: '#c2410c', border: '1px solid #fed7aa' }}>
+                        🍽️ Cafe &amp; Dining
+                      </span>
+                    )}
                     <span className="open-bill-ordertype-pill">{bill.orderType}</span>
                   </div>
                 </div>
@@ -441,6 +454,12 @@ export const OpenBills: React.FC<OpenBillsProps> = ({
                     Cashier: {bill.cashier}
                   </span>
                 </div>
+                {bill.notes && (
+                  <div style={{ padding: '5px 12px', fontSize: '11px', color: '#0369a1', background: '#f0f9ff', borderTop: '1px dashed #e0f2fe', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <IconInfo size={13} style={{ flexShrink: 0 }} />
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{bill.notes}</span>
+                  </div>
+                )}
 
                 {/* Items Summary List */}
                 <div className="open-bill-items-container">

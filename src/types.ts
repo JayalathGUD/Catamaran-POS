@@ -103,6 +103,8 @@ export interface HistoryBill {
   refundedAt?: string
   closedAt?: string
   notes?: string
+  rentalId?: string
+  lessonId?: string
   createdAt?: string
   updatedAt?: string
 }
@@ -162,6 +164,8 @@ export interface ActiveRental {
   hourlyRate: number // Default reference rate: 1000
   agreedHourlyRate: number // Actual agreed rate (e.g. 500, 1000, or custom)
   notes?: string
+  billId?: string
+  billNumber?: string
 }
 
 export interface CompletedRental {
@@ -197,6 +201,8 @@ export interface CompletedRental {
   paymentStatus: RentalPaymentStatus
   paymentRecordedAt?: string
   notes?: string
+  billId?: string
+  billNumber?: string
   returnedAt: string
 }
 
@@ -316,6 +322,8 @@ export interface SurfLesson {
   coconutMovementId?: string
   notes?: string
   cashier?: string
+  billId?: string
+  billNumber?: string
   createdAt?: string
   updatedAt?: string
 }
