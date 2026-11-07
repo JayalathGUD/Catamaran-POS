@@ -1,6 +1,6 @@
 {
   "name": "catamaran-pos",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Catamaran Surf Club & Restaurant POS Terminal",
   "main": "electron/main.cjs",
   "scripts": {

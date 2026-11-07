@@ -168,7 +168,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         </div>
         <div className="system-pill">
-          <span>v1.0.1 (Win-x64)</span>
+          <span>v1.0.2 (Win-x64)</span>
           <span className="system-env-tag" style={{ backgroundColor: '#10b981', color: '#ffffff' }}>
             LIVE
           </span>
